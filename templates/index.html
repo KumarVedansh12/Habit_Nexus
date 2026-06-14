@@ -1,0 +1,118 @@
+<!-- <!DOCTYPE html>
+<html>
+<head>
+    <title>Routine Battle</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="container">
+
+    <h1>🔥 Routine Battle</h1>
+
+    <div class="card">
+
+        <h2>Add New Routine</h2>
+
+        <form>
+            <input
+                type="text"
+                placeholder="Enter routine..."
+            >
+
+            <button type="submit">
+                Add
+            </button>
+        </form>
+
+    </div>
+
+    <div class="card">
+
+        <h2>Today's Tasks</h2>
+
+        {% for routine in routines %}
+
+<!-- <label>
+    <input type="checkbox">
+    {{ routine["task_name"] }}
+</label> -->
+
+<!-- {% for routine in routines %}
+
+<label>
+
+<a href="/toggle/{{ routine['id'] }}">
+
+{% if routine['completed'] %}
+✅
+{% else %}
+⬜
+{% endif %}
+
+</a>
+
+{{ routine["task_name"] }}
+
+</label>
+
+{% endfor %}
+
+{% endfor %}
+
+        <label>
+            <input type="checkbox">
+            Study DSA
+        </label>
+
+        <label>
+            <input type="checkbox">
+            Read Book
+        </label>
+
+        <label>
+            <input type="checkbox">
+            Drink Water
+        </label>
+
+    </div>
+
+    <div class="card">
+
+        <h2>Today's Progress</h2>
+
+        <div class="progress-bar">
+            <div class="progress-fill"></div>
+        </div>
+        
+        <div
+            class="progress-fill"
+            style="width: {{ progress }}%;"
+        ></div>
+
+        <p>{{ progress }}%</p>
+
+    </div>
+
+</div>
+
+</body>
+</html> --> 
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Routine Battle</title>
+</head>
+<body>
+
+    <h1>Routine Battle</h1>
+
+    <p>Track habits and compete with friends.</p>
+
+    <a href="/dashboard">
+        Go To Dashboard
+    </a>
+
+</body>
+</html>
