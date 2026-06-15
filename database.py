@@ -41,6 +41,22 @@ def init_db():
         completed INTEGER DEFAULT 0
     )
     """)
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS friend_requests(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sender_id INTEGER NOT NULL,
+        receiver_id INTEGER NOT NULL,
+        status TEXT DEFAULT 'pending'
+    )
+    """)
+
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS friends(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        friend_id INTEGER NOT NULL
+    )
+    """)
 
     conn.commit()
     conn.close()

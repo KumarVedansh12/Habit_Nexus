@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Friend Requests</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="settings-card">
+
+    <div class="page-header">
+
+    <a href="/dashboard" class="back-btn">
+        ← Dashboard
+    </a>
+
+    <div class="page-title">
+        <h1>📩 Friend Requests</h1>
+    </div>
+
+</div>
+
+    {% for request in requests %}
+
+        <div class="friend-row">
+
+            <span>
+                {{ request["username"] }}
+            </span>
+
+            <a href="/accept-request/{{ request['id'] }}"
+               class="settings-btn">
+                Accept
+            </a>
+            <a href="/reject-request/{{ request['id'] }}"
+                class="reject-btn">
+                    Reject
+                </a>
+        </div>
+
+    {% endfor %}
+
+</div>
+
+</body>
+</html>

@@ -464,5 +464,205 @@ def export_csv():
         }
     )
 
+@app.route("/friends")
+def friends():
+
+    if "user_id" not in session:
+        return redirect("/login")
+
+    search = request.args.get("search", "")
+
+    conn = get_db_connection()
+
+    users = []
+
+    if search:
+
+        users = conn.execute(
+            """
+            SELECT id, username
+            FROM users
+            WHERE username LIKE ?
+            AND id != ?
+            """,
+            (f"%{search}%", session["user_id"])
+        ).fetchall()
+
+    conn.close()
+
+    return render_template(
+        "friends.html",
+        users=users,
+        search=search
+    )
+
+@app.route("/send-request/<int:user_id>")
+def send_request(user_id):
+
+    if "user_id" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+
+    conn.execute(
+        """
+        INSERT INTO friend_requests
+        (sender_id, receiver_id)
+        VALUES (?, ?)
+        """,
+        (session["user_id"], user_id)
+    )
+
+    conn.commit()
+    conn.close()
+
+    return redirect("/friends")
+
+@app.route("/requests")
+def requests_page():
+
+    if "user_id" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+
+    requests = conn.execute(
+        """
+        SELECT
+            fr.id,
+            u.username
+
+        FROM friend_requests fr
+
+        JOIN users u
+        ON fr.sender_id = u.id
+
+        WHERE fr.receiver_id = ?
+        AND fr.status = 'pending'
+        """,
+        (session["user_id"],)
+    ).fetchall()
+
+    conn.close()
+
+    return render_template(
+        "requests.html",
+        requests=requests
+    )
+
+@app.route("/accept-request/<int:req_id>")
+def accept_request(req_id):
+
+    conn = get_db_connection()
+
+    request_data = conn.execute(
+        """
+        SELECT *
+        FROM friend_requests
+        WHERE id=?
+        """,
+        (req_id,)
+    ).fetchone()
+
+    sender = request_data["sender_id"]
+    receiver = request_data["receiver_id"]
+
+    conn.execute(
+        """
+        INSERT INTO friends
+        (user_id, friend_id)
+        VALUES (?, ?)
+        """,
+        (sender, receiver)
+    )
+
+    conn.execute(
+        """
+        INSERT INTO friends
+        (user_id, friend_id)
+        VALUES (?, ?)
+        """,
+        (receiver, sender)
+    )
+
+    conn.execute(
+        """
+        UPDATE friend_requests
+        SET status='accepted'
+        WHERE id=?
+        """,
+        (req_id,)
+    )
+
+    conn.commit()
+    conn.close()
+
+    return redirect("/requests")
+
+
+def get_leaderboard():
+
+    conn = get_db_connection()
+
+    data = conn.execute(
+        """
+        SELECT
+            u.username,
+            COALESCE(
+                SUM(tl.completed) * 10,
+                0
+            ) as points
+
+        FROM users u
+
+        LEFT JOIN routines r
+        ON u.id = r.user_id
+
+        LEFT JOIN task_logs tl
+        ON r.id = tl.routine_id
+
+        GROUP BY u.id
+
+        ORDER BY points DESC
+        """
+    ).fetchall()
+
+    conn.close()
+
+    return data
+
+@app.route("/leaderboard")
+def leaderboard():
+
+    data = get_leaderboard()
+
+    return render_template(
+        "leaderboard.html",
+        users=data
+)
+
+@app.route("/reject-request/<int:req_id>")
+def reject_request(req_id):
+
+    if "user_id" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+
+    conn.execute(
+        """
+        UPDATE friend_requests
+        SET status='rejected'
+        WHERE id=?
+        """,
+        (req_id,)
+    )
+
+    conn.commit()
+    conn.close()
+
+    return redirect("/requests")     
+
+
 if __name__ == "__main__":
     app.run(debug=True)

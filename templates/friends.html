@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Friends</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="settings-card">
+    <div class="page-header">
+
+    <a href="/dashboard" class="back-btn">
+        ← Dashboard
+    </a>
+
+    <div class="page-title">
+        <h1>👥 Find Friends</h1>
+    </div>
+
+</div>
+
+    <form method="GET">
+
+        <input
+            type="text"
+            name="search"
+            value="{{ search }}"
+            placeholder="Search username"
+        >
+
+        <button type="submit">
+            Search
+        </button>
+
+    </form>
+
+    <br>
+
+    {% for user in users %}
+
+        <div class="friend-row">
+
+            <span>
+                {{ user["username"] }}
+            </span>
+
+            <a href="/send-request/{{ user['id'] }}"
+               class="settings-btn">
+                Add Friend
+            </a>
+
+        </div>
+
+    {% endfor %}
+</div>
+</body>
+</html>
