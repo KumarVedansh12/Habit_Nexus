@@ -253,29 +253,6 @@ label{
 .back-btn:hover{
     opacity:0.9;
 }
-.heatmap{
-    display:flex;
-    flex-wrap:wrap;
-    gap:5px;
-}
-
-.heat-cell{
-    width:20px;
-    height:20px;
-    border-radius:4px;
-}
-
-.green{
-    background:#22c55e;
-}
-
-.yellow{
-    background:#eab308;
-}
-
-.red{
-    background:#ef4444;
-}
 .date-filter{
     display:flex;
     gap:10px;
@@ -293,4 +270,55 @@ label{
     border:none;
     border-radius:8px;
     cursor:pointer;
+}
+.csv-btn{
+    background:#0ea5e9;
+    color:white;
+    padding:10px 15px;
+    border-radius:8px;
+    text-decoration:none;
+    display:inline-block;
+    margin-bottom:15px;
+}
+.heatmap{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:15px;
+}
+
+.heat-cell{
+    width:45px;
+    height:45px;
+
+    border-radius:8px;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    font-size:12px;
+    font-weight:bold;
+
+    color:white;
+
+    cursor:pointer;
+
+    transition:0.2s;
+}
+
+.heat-cell:hover{
+    transform:scale(1.1);
+}
+
+.green{
+    background:#22c55e;
+}
+
+.yellow{
+    background:#eab308;
+}
+
+.red{
+    background:#ef4444;
 }

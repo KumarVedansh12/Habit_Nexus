@@ -80,6 +80,10 @@
         <p>{{ progress }}%</p>
     </div>
 
+    <a href="/export-csv" class="csv-btn">
+    📄 Download CSV
+</a>
+
 </div>
 
         <form action="/add_routine" method="POST">
@@ -218,34 +222,42 @@ new Chart(document.getElementById('weeklyChart'), {
 
 <h2>📅 Activity Heatmap</h2>
 
-<div class="heatmap">
+<<div class="card">
 
-{% for day in heatmap_data %}
+    <h2>📅 Activity Heatmap</h2>
 
-    {% set percent =
-        (day["completed"] /
-         day["total"]) * 100
-    %}
+    <div class="heatmap">
 
-    <div
-        class="heat-cell
+        {% for day in heatmap_data %}
 
-        {% if percent == 100 %}
-            green
-        {% elif percent >= 50 %}
-            yellow
-        {% else %}
-            red
-        {% endif %}
-        "
+        {% set percent =
+            (day["completed"] / day["total"]) * 100
+        %}
 
-        title="{{ day['log_date'] }}"
-    >
+        <div
+            class="heat-cell
+            {% if percent == 100 %}
+                green
+            {% elif percent >= 50 %}
+                yellow
+            {% else %}
+                red
+            {% endif %}
+            "
+
+            title="
+            {{ day['log_date'] }}
+            - {{ percent|round }}%
+            "
+        >
+
+            {{ day['log_date'][8:] }}
+
+        </div>
+
+        {% endfor %}
+
     </div>
-
-{% endfor %}
-
-</div>
 
 </div>
 </body>

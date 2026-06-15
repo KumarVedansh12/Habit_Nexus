@@ -3,6 +3,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_db_connection, init_db
 from datetime import date
 from datetime import date, timedelta
+import csv
+from flask import Response
 
 app = Flask(__name__)
 app.secret_key = "routinebattle123"
@@ -413,6 +415,54 @@ def get_heatmap_data(user_id):
     conn.close()
 
     return data
+
+@app.route("/export-csv")
+def export_csv():
+
+    if "user_id" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+
+    data = conn.execute(
+        """
+        SELECT
+            tl.log_date,
+            r.task_name,
+            tl.completed
+
+        FROM task_logs tl
+
+        JOIN routines r
+        ON tl.routine_id = r.id
+
+        WHERE r.user_id = ?
+
+        ORDER BY tl.log_date DESC
+        """,
+        (session["user_id"],)
+    ).fetchall()
+
+    conn.close()
+
+    def generate():
+
+        yield "Date,Task,Completed\n"
+
+        for row in data:
+
+            status = "Yes" if row["completed"] else "No"
+
+            yield f"{row['log_date']},{row['task_name']},{status}\n"
+
+    return Response(
+        generate(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition":
+            "attachment; filename=routine_history.csv"
+        }
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)
