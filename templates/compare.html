@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Routine Battle</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="settings-card">
+
+    <div class="page-header">
+        <a href="/my-friends" class="back-btn">
+            ← Friends
+        </a>
+
+        <h1>⚔️ Routine Battle</h1>
+    </div>
+
+    <div class="friend-row">
+        <strong>{{ me["username"] }}</strong>
+        <strong>{{ my_score }}%</strong>
+    </div>
+
+    <div class="friend-row">
+        <strong>{{ friend["username"] }}</strong>
+        <strong>{{ friend_score }}%</strong>
+    </div>
+
+    <br>
+
+    <h2 style="text-align:center;">
+        🏆 Winner: {{ winner }}
+    </h2>
+
+</div>
+
+</body>
+</html>

@@ -661,8 +661,151 @@ def reject_request(req_id):
     conn.commit()
     conn.close()
 
-    return redirect("/requests")     
+    return redirect("/requests")   
 
+@app.route("/my-friends")
+def my_friends():
+
+    if "user_id" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+
+    friends = conn.execute(
+        """
+        SELECT
+            u.id,
+            u.username
+
+        FROM friends f
+
+        JOIN users u
+        ON f.friend_id = u.id
+
+        WHERE f.user_id = ?
+        """,
+        (session["user_id"],)
+    ).fetchall()
+
+    conn.close()
+
+    return render_template(
+        "my_friends.html",
+        friends=friends
+    )  
+
+@app.route("/remove-friend/<int:friend_id>")
+def remove_friend(friend_id):
+
+    if "user_id" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+
+    conn.execute(
+        """
+        DELETE FROM friends
+        WHERE user_id=?
+        AND friend_id=?
+        """,
+        (session["user_id"], friend_id)
+    )
+
+    conn.execute(
+        """
+        DELETE FROM friends
+        WHERE user_id=?
+        AND friend_id=?
+        """,
+        (friend_id, session["user_id"])
+    )
+
+    conn.commit()
+    conn.close()
+
+    return redirect("/my-friends")
+
+def get_user_progress(user_id):
+
+    conn = get_db_connection()
+
+    today = date.today().isoformat()
+
+    stats = conn.execute(
+        """
+        SELECT
+            COUNT(*) as total,
+            COALESCE(
+                SUM(tl.completed),
+                0
+            ) as completed
+
+        FROM routines r
+
+        LEFT JOIN task_logs tl
+        ON r.id = tl.routine_id
+        AND tl.log_date = ?
+
+        WHERE r.user_id = ?
+        """,
+        (today, user_id)
+    ).fetchone()
+
+    conn.close()
+
+    total = stats["total"]
+
+    if total == 0:
+        return 0
+
+    return round(
+        (stats["completed"] / total) * 100
+    )
+
+@app.route("/compare/<int:friend_id>")
+def compare(friend_id):
+
+    if "user_id" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+
+    me = conn.execute(
+        "SELECT username FROM users WHERE id=?",
+        (session["user_id"],)
+    ).fetchone()
+
+    friend = conn.execute(
+        "SELECT username FROM users WHERE id=?",
+        (friend_id,)
+    ).fetchone()
+
+    conn.close()
+
+    my_score = get_user_progress(
+        session["user_id"]
+    )
+
+    friend_score = get_user_progress(
+        friend_id
+    )
+
+    winner = "Tie"
+
+    if my_score > friend_score:
+        winner = me["username"]
+
+    elif friend_score > my_score:
+        winner = friend["username"]
+
+    return render_template(
+        "compare.html",
+        me=me,
+        friend=friend,
+        my_score=my_score,
+        friend_score=friend_score,
+        winner=winner
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)

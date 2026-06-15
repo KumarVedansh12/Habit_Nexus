@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Friends</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="settings-card">
+
+    <div class="page-header">
+        <a href="/dashboard" class="back-btn">
+            ← Dashboard
+        </a>
+
+        <h1>👥 My Friends</h1>
+    </div>
+
+    {% for friend in friends %}
+
+    <div class="friend-row">
+
+        <span>
+            {{ friend["username"] }}
+        </span>
+
+        <div class="request-actions">
+
+            <a href="/compare/{{ friend['id'] }}"
+               class="settings-btn">
+                Compare
+            </a>
+
+            <a href="/remove-friend/{{ friend['id'] }}"
+               class="reject-btn">
+                Remove
+            </a>
+
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+</body>
+</html>
