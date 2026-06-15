@@ -5,9 +5,13 @@ from datetime import date
 from datetime import date, timedelta
 import csv
 from flask import Response
+import os
 
 app = Flask(__name__)
-app.secret_key = "routinebattle123"
+app.secret_key = os.environ.get(
+    "SECRET_KEY",
+    "dev-secret"
+)
 
 init_db()
 @app.route("/")
