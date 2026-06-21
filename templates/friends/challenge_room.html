@@ -1,0 +1,249 @@
+{% extends "layout/base.html" %}
+
+{% block extra_css %}
+
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/friends.css') }}"
+>
+
+{% endblock %}
+
+{% block content %}
+
+<section class="battle-page">
+
+
+<div class="battle-bg"></div>
+
+<div class="battle-header">
+
+    <span class="battle-badge">
+        ⚔ LIVE CODING BATTLE
+    </span>
+
+    <h1>
+        Challenge Arena
+    </h1>
+
+    <p>
+        Compete with your friend and dominate the leaderboard.
+    </p>
+
+</div>
+
+<div class="battle-main">
+
+    <!-- PLAYER 1 -->
+
+    <div class="battle-card self-card">
+
+        <div class="battle-top">
+
+            <div class="online-status"></div>
+
+            <img
+                src="{{ session.get('profile_image', url_for('static', filename='images/default.png')) }}"
+                class="battle-avatar"
+            >
+
+        </div>
+
+        <h2>
+            You
+        </h2>
+
+        <span class="battle-rank">
+            🔥 Active Challenger
+        </span>
+
+        <div class="battle-stats">
+
+            <div class="stat-box">
+
+                <h3>
+                    124
+                </h3>
+
+                <p>
+                    Problems
+                </p>
+
+            </div>
+
+            <div class="stat-box">
+
+                <h3>
+                    12
+                </h3>
+
+                <p>
+                    Streak
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- VS -->
+
+    <div class="vs-section">
+
+        <div class="vs-circle">
+
+            VS
+
+        </div>
+
+    </div>
+
+    <!-- PLAYER 2 -->
+
+    <div class="battle-card opponent-card">
+
+        <div class="battle-top">
+
+            <div class="online-status active"></div>
+
+            <img
+                src="{{ friend.profile_image if friend.profile_image else url_for('static', filename='images/default.png') }}"
+                class="battle-avatar"
+            >
+
+        </div>
+
+        <h2>
+            {{ friend.username }}
+        </h2>
+
+        <span class="battle-rank">
+            🚀 DSA Warrior
+        </span>
+
+        <div class="battle-stats">
+
+            <div class="stat-box">
+
+                <h3>
+                    98
+                </h3>
+
+                <p>
+                    Problems
+                </p>
+
+            </div>
+
+            <div class="stat-box">
+
+                <h3>
+                    8
+                </h3>
+
+                <p>
+                    Streak
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- BATTLE TASKS -->
+
+<section class="battle-missions">
+
+    <div class="mission-card">
+
+        <h3>
+            🧠 Today's Goal
+        </h3>
+
+        <p>
+            Solve 5 Medium Problems
+        </p>
+
+    </div>
+
+    <div class="mission-card">
+
+        <h3>
+            ⚡ Speed Battle
+        </h3>
+
+        <p>
+            First to solve wins bonus points
+        </p>
+
+    </div>
+
+    <div class="mission-card">
+
+        <h3>
+            🔥 Streak Clash
+        </h3>
+
+        <p>
+            Maintain coding consistency
+        </p>
+
+    </div>
+
+</section>
+
+<!-- BATTLE TIMELINE -->
+
+<section class="battle-timeline">
+
+    <div class="timeline-card">
+
+        <h3>
+            📈 Recent Activity
+        </h3>
+
+        <ul>
+
+            <li>
+                Solved Binary Search
+            </li>
+
+            <li>
+                Completed DP Challenge
+            </li>
+
+            <li>
+                Won Weekly Streak
+            </li>
+
+        </ul>
+
+    </div>
+
+</section>
+
+<div class="battle-actions">
+
+    <a
+        href="/friends-hub"
+        class="battle-btn secondary-btn"
+    >
+        ← Back
+    </a>
+
+    <button class="battle-btn primary-btn">
+
+        🚀 Start Battle
+
+    </button>
+
+</div>
+
+
+</section>
+
+{% endblock %}

@@ -82,9 +82,29 @@ def init_db():
 
         receiver_id INTEGER,
 
-        status TEXT DEFAULT 'pending'
+        status TEXT DEFAULT 'pending',
+                 
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
+
+    #Activity_feed
+
+    conn.execute("""
+
+    CREATE TABLE IF NOT EXISTS activities (
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        user_id INTEGER,
+
+        activity TEXT,
+
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+
+    """)
+
 
     # FRIENDS
 
@@ -95,7 +115,9 @@ def init_db():
 
         user1_id INTEGER,
 
-        user2_id INTEGER
+        user2_id INTEGER,
+                
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
 
@@ -172,6 +194,26 @@ def init_db():
         log_date TEXT
     )
     """)
+    # CHALLENGES TABLE
+
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS challenges (
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        challenger_id INTEGER NOT NULL,
+
+        challenged_id INTEGER NOT NULL,
+
+        status TEXT DEFAULT 'pending',
+
+        winner_id INTEGER,
+
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+    )
+    """)
+
 
 
     conn.commit()

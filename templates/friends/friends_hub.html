@@ -1,364 +1,180 @@
-
 {% extends "layout/base.html" %}
 
 {% block extra_css %}
-
 <link
     rel="stylesheet"
     href="{{ url_for('static', filename='css/friends.css') }}"
 >
-
 {% endblock %}
 
 {% block content %}
+<div class="friends-page">
 
-<!-- HERO -->
-
-<section class="friends-hero">
-
-    <div class="hero-overlay"></div>
-
-    <div class="hero-content">
-
-        <span class="hero-badge">
-            🌐 Social Productivity Network
-        </span>
-
-        <h1>
-            Friends Hub
-        </h1>
-
+    <!-- HERO SECTION -->
+    <section class="friends-hero">
+        <div class="hero-badge">
+            🚀 NEXT GEN SOCIAL EXPERIENCE
+        </div>
+        <h1>Social Command Center</h1>
         <p>
-            Connect with coders,
-            compete on streaks,
-            share progress,
+            Connect with coders, build streak battles,
+            track progress, compete with friends,
             and grow together.
         </p>
 
         <div class="hero-stats">
-
-            <div class="hero-stat">
-
+            <div class="hero-stat-card">
                 <h2>{{ friends|length }}</h2>
-
                 <span>Friends</span>
-
             </div>
 
-            <div class="hero-stat">
-
+            <div class="hero-stat-card">
                 <h2>{{ requests|length }}</h2>
-
                 <span>Requests</span>
-
             </div>
 
-            <div class="hero-stat">
-
-                <h2>{{ users|length }}</h2>
-
-                <span>Discover</span>
-
+            <div class="hero-stat-card">
+                <h2>{{ activities|length }}</h2>
+                <span>Activities</span>
             </div>
+        </div>
+    </section>
 
+    <!-- FRIEND REQUESTS SECTION -->
+    <section class="friends-section">
+        <div class="section-header">
+            <h2>🔔 Friend Requests</h2>
         </div>
 
-    </div>
-
-</section>
-
-<!-- SEARCH -->
-
-<section class="search-section">
-
-    <div class="search-box">
-
-        <input
-            type="text"
-            placeholder="Search developers, friends, colleges..."
-            id="friendSearch"
-        >
-
-    </div>
-
-</section>
-
-<!-- PENDING REQUESTS -->
-
-<section class="friend-wrapper">
-
-    <div class="section-header">
-
-        <h2>
-            📩 Pending Requests
-        </h2>
-
-        <span>
-            {{ requests|length }} Requests
-        </span>
-
-    </div>
-
-    <div class="friend-grid">
-
-        {% for request in requests %}
-
-        <div class="modern-card">
-
-            <div class="card-top">
-
-                <img
-                    src="{% if request.profile_image %}{{ request.profile_image }}{% else %}https://cdn-icons-png.flaticon.com/512/3135/3135715.png{% endif %}"
-                    class="modern-avatar"
-                >
-
-                <div>
-
-                    <h3>
-                        {{ request.username }}
-                    </h3>
-
-                    <p>
-                        Wants to connect with you
-                    </p>
-
+        {% if requests %}
+        <div class="request-grid">
+            {% for request in requests %}
+            <div class="request-card">
+                <div class="request-left">
+                    <img
+                        src="{{ request.profile_image if request.profile_image else url_for('static', filename='images/default.png') }}"
+                        class="profile-img"
+                        alt="{{ request.username }}'s profile"
+                    >
+                    <div>
+                        <h3>{{ request.username }}</h3>
+                        <p>{{ request.college }}</p>
+                    </div>
                 </div>
-
-            </div>
-
-            <div class="card-actions">
-
-                <a
-                    href="/accept-request/{{ request.id }}"
-                    class="accept-btn"
-                >
+                <a href="/accept-request/{{ request.id }}" class="accept-btn">
                     Accept
                 </a>
-
-
             </div>
-
+            {% endfor %}
         </div>
-
         {% else %}
+        <div class="empty-box">
+            No pending friend requests.
+        </div>
+        {% endif %}
+    </section>
 
-        <div class="empty-state">
-
-            <h3>
-                No Pending Requests
-            </h3>
-
+    <!-- FRIENDS SECTION -->
+    <section class="friends-section">
+        <div class="section-header">
+            <h2>🤝 Your Friends</h2>
         </div>
 
-        {% endfor %}
-
-    </div>
-
-</section>
-
-<!-- DISCOVER USERS -->
-
-<section class="friend-wrapper">
-
-    <div class="section-header">
-
-        <h2>
-            🚀 Discover Developers
-        </h2>
-
-        <span>
-            Expand your network
-        </span>
-
-    </div>
-
-    <div class="friend-grid">
-
-        {% for user in users %}
-
-        <div class="modern-card searchable-card">
-
-            <div class="card-top">
-
+        {% if friends %}
+        <div class="friends-grid">
+            {% for friend in friends %}
+            <div class="friend-card">
+                <div class="online-dot"></div>
                 <img
-                    src="{% if user.profile_image %}{{ user.profile_image }}{% else %}https://cdn-icons-png.flaticon.com/512/3135/3135715.png{% endif %}"
-                    class="modern-avatar"
+                    src="{{ friend.profile_image if friend.profile_image else url_for('static', filename='images/default.png') }}"
+                    class="profile-img"
+                    alt="{{ friend.username }}'s profile"
                 >
+                <h3>{{ friend.username }}</h3>
+                <p>{{ friend.college }}</p>
 
-                <div>
-
-                    <h3>
-                        {{ user.username }}
-                    </h3>
-
-                    <p>
-                        {{ user.college or 'Developer Community' }}
-                    </p>
-
+                <div class="friend-actions">
+                    <a href="/challenge/{{ friend.id }}" class="challenge-btn">
+                         Challenge
+                    </a>
+                    <a href="/remove-friend/{{ friend.id }}" class="remove-btn">
+                        Remove
+                    </a>
                 </div>
-
             </div>
-
-            <div class="card-actions">
-
-                <a
-                href="/send-request/{{ user.id }}"
-                class="add-btn"
-            >
-                Add Friend
-            </a>
-
-
-            </div>
-
+            {% endfor %}
         </div>
-
         {% else %}
+        <div class="empty-box">
+            No friends added yet.
+        </div>
+        {% endif %}
+    </section>
 
-        <div class="empty-state">
-
-            <h3>
-                No Users Found
-            </h3>
-
+    <!-- DISCOVER USERS SECTION -->
+    <section class="friends-section">
+        <div class="section-header">
+            <h2>🌎 Discover Users</h2>
         </div>
 
-        {% endfor %}
 
-    </div>
-
-</section>
-
-<!-- FRIEND LIST -->
-
-<section class="friend-wrapper">
-
-    <div class="section-header">
-
-        <h2>
-            👥 Your Network
-        </h2>
-
-        <span>
-            Productivity partners
-        </span>
-
-    </div>
-
-    <div class="friend-grid">
-
-        {% for friend in friends %}
-
-        <div class="modern-card searchable-card">
-
-            <div class="online-dot"></div>
-
-            <div class="card-top">
-
-                <img
-                    src="{% if friend.profile_image %}{{ friend.profile_image }}{% else %}https://cdn-icons-png.flaticon.com/512/3135/3135715.png{% endif %}"
-                    class="modern-avatar"
-                >
-
-                <div>
-
-                    <h3>
-                        {{ friend.username }}
-                    </h3>
-
-                    <p>
-                        {{ friend.college or 'HabitNexus User' }}
-                    </p>
-
+        <div class="discover-grid" id="discoverGrid">
+            {% for user in users %}
+            <div class="discover-card">
+                <div class="discover-top">
+                    <img
+                        src="{{ user.profile_image if user.profile_image else url_for('static', filename='images/default.png') }}"
+                        class="profile-img"
+                        alt="{{ user.username }}'s profile"
+                    >
+                    <div>
+                        <h3>{{ user.username }}</h3>
+                        <p>{{ user.college }}</p>
+                        <span class="online-text">● Available</span>
+                    </div>
                 </div>
 
-            </div>
-
-            <div class="friend-progress">
-
-                <div class="progress-label">
-
-                    <span>Weekly Productivity</span>
-
-                    <span>78%</span>
-
+                <div class="discover-bottom">
+                    <span class="skill-badge">
+                        🚀 Competitive Programmer
+                    </span>
+                    <div class="discover-actions">
+                        <a href="/send-request/{{ user.id }}" class="add-btn">
+                            Add Friend
+                        </a>
+                        <a href="/profile/{{ user.id }}" class="profile-btn">
+                            View Profile
+                        </a>
+                    </div>
                 </div>
-
-                <div class="progress-bar">
-
-                    <div class="progress-fill"></div>
-
-                </div>
-
             </div>
+            {% endfor %}
+        </div>
+    </section>
 
-            <div class="card-actions">
-
-                <a
-                    href="/friend-profile/{{ friend.id }}"
-                    class="view-btn"
-                >
-                    View
-                </a>
-
-                <a
-                    href="/remove-friend/{{ friend.id }}"
-                    class="remove-btn"
-                >
-                    Remove
-                </a>
-
-
-            </div>
-
+    <!-- ACTIVITY FEED SECTION -->
+    <section class="friends-section">
+        <div class="section-header">
+            <h2>📈 Activity Feed</h2>
         </div>
 
+        {% if activities %}
+        <div class="activity-feed">
+            {% for activity in activities %}
+            <div class="activity-card">
+                <strong>{{ activity.username }}</strong>
+                <p>{{ activity.activity }}</p>
+            </div>
+            {% endfor %}
+        </div>
         {% else %}
-
-        <div class="empty-state">
-
-            <h3>
-                No Friends Yet
-            </h3>
-
+        <div class="empty-box">
+            No recent activities.
         </div>
+        {% endif %}
+    </section>
 
-        {% endfor %}
+</div>
 
-    </div>
-
-</section>
-
-<!-- FLOATING ACTION -->
-
-<button class="floating-social-btn">
-
-    💬
-
-</button>
-
-<script>
-
-const searchInput =
-document.getElementById("friendSearch")
-
-const cards =
-document.querySelectorAll(".searchable-card")
-
-searchInput.addEventListener("keyup", () => {
-
-    const value =
-    searchInput.value.toLowerCase()
-
-    cards.forEach(card => {
-
-        card.style.display =
-        card.innerText.toLowerCase().includes(value)
-        ? "block"
-        : "none"
-    })
-})
-
-</script>
-
+<script src="{{ url_for('static', filename='js/friends.js') }}"></script>
 {% endblock %}

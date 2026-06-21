@@ -1,463 +1,630 @@
+/* =========================================
+   MAIN FRIENDS LAYOUT
+========================================= */
 
-/* =========================
-   GLOBAL
-========================= */
+.friends-page {
+    width: 100%;
+    padding: 40px;
+    padding-left: 60px;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+/* =========================================
+   HERO SECTION
+========================================= */
 
 .friends-hero {
-
     position: relative;
-
-    padding: 120px 8%;
-
-    border-radius: 30px;
-
     overflow: hidden;
 
-    margin-bottom: 50px;
-
     background:
-    linear-gradient(
-        135deg,
-        #6c63ff,
-        #4b44d4,
-        #1c1f4a
-    );
+        radial-gradient(circle at top right,
+        rgba(79, 70, 229, 0.45),
+        transparent 30%),
+        #0f172a;
 
-    color: white;
-}
-
-.hero-overlay {
-
-    position: absolute;
-
-    inset: 0;
-
-    background:
-    radial-gradient(
-        circle at top right,
-        rgba(255,255,255,0.2),
-        transparent 40%
-    );
-}
-
-.hero-content {
-
-    position: relative;
-
-    z-index: 2;
+    border-radius: 32px;
+    padding: 60px;
+    margin-bottom: 40px;
+    border: 1px solid rgba(255,255,255,0.08);
 }
 
 .hero-badge {
-
     display: inline-block;
-
-    padding: 10px 18px;
-
-    border-radius: 50px;
-
-    background: rgba(255,255,255,0.15);
-
+    background: #1e3a8a;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 999px;
     margin-bottom: 20px;
-
     font-size: 14px;
-
-    backdrop-filter: blur(10px);
+    font-weight: 600;
 }
 
-.hero-content h1 {
-
-    font-size: 58px;
-
-    margin-bottom: 20px;
-
+.friends-hero h1 {
+    font-size: 64px;
     font-weight: 800;
+    color: white;
+    margin-bottom: 16px;
 }
 
-.hero-content p {
-
-    max-width: 650px;
-
-    line-height: 1.8;
-
-    font-size: 18px;
-
-    opacity: 0.9;
+.friends-hero p {
+    font-size: 22px;
+    line-height: 1.6;
+    color: #cbd5e1;
+    max-width: 900px;
 }
 
-/* =========================
-   HERO STATS
-========================= */
+/* =========================================
+   STATS CARDS
+========================================= */
 
 .hero-stats {
-
     display: flex;
-
-    gap: 25px;
-
+    gap: 20px;
     margin-top: 40px;
-
     flex-wrap: wrap;
 }
 
-.hero-stat {
-
-    background: rgba(255,255,255,0.12);
-
-    padding: 20px 30px;
-
-    border-radius: 20px;
-
-    backdrop-filter: blur(12px);
-
-    min-width: 140px;
+.hero-stat-card {
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(20px);
+    padding: 24px;
+    border-radius: 24px;
+    min-width: 180px;
 }
 
-.hero-stat h2 {
-
-    font-size: 34px;
-
-    margin-bottom: 5px;
-}
-
-/* =========================
-   SEARCH
-========================= */
-
-.search-section {
-
-    margin-bottom: 40px;
-}
-
-.search-box input {
-
-    width: 100%;
-
-    padding: 18px 24px;
-
-    border-radius: 18px;
-
-    border: none;
-
-    background: #151924;
-
+.hero-stat-card h2 {
+    font-size: 40px;
     color: white;
+    margin-bottom: 10px;
+}
 
+.hero-stat-card span {
+    color: #cbd5e1;
     font-size: 16px;
 }
 
-/* =========================
-   SECTIONS
-========================= */
+/* =========================================
+   SECTION HEADERS
+========================================= */
 
-.friend-wrapper {
-
-    margin-bottom: 60px;
+.friends-section {
+    margin-top: 50px;
 }
 
-.section-header {
-
-    display: flex;
-
-    justify-content: space-between;
-
-    align-items: center;
-
-    margin-bottom: 25px;
-
-    flex-wrap: wrap;
-}
-
+/* Fixed selector mismatch to match friends_hub.html layout */
 .section-header h2 {
-
-    font-size: 32px;
-}
-
-/* =========================
-   GRID
-========================= */
-
-.friend-grid {
-
-    display: grid;
-
-    grid-template-columns:
-    repeat(auto-fit, minmax(300px, 1fr));
-
-    gap: 25px;
-}
-
-/* =========================
-   CARDS
-========================= */
-
-.modern-card {
-
-    position: relative;
-
-    background: #121826;
-
-    border-radius: 24px;
-
-    padding: 25px;
-
-    overflow: hidden;
-
-    transition: 0.35s ease;
-
-    border: 1px solid rgba(255,255,255,0.06);
-}
-
-.modern-card:hover {
-
-    transform: translateY(-8px);
-
-    box-shadow:
-    0 20px 50px rgba(0,0,0,0.3);
-}
-
-.card-top {
-
-    display: flex;
-
-    align-items: center;
-
-    gap: 18px;
-
-    margin-bottom: 25px;
-}
-
-.modern-avatar {
-
-    width: 70px;
-
-    height: 70px;
-
-    border-radius: 50%;
-
-    object-fit: cover;
-
-    border: 3px solid #6c63ff;
-}
-
-.card-top h3 {
-
-    margin-bottom: 5px;
-
+    font-size: 48px;
     color: white;
+    margin-bottom: 10px;
 }
 
-.card-top p {
+/* =========================================
+   SEARCH COMPONENT
+========================================= */
 
-    color: #a5b0d6;
-
-    font-size: 14px;
-}
-
-/* =========================
-   ONLINE DOT
-========================= */
-
-.online-dot {
-
-    position: absolute;
-
-    top: 18px;
-
-    right: 18px;
-
-    width: 12px;
-
-    height: 12px;
-
-    border-radius: 50%;
-
-    background: #00ff88;
-
-    box-shadow:
-    0 0 10px #00ff88;
-}
-
-/* =========================
-   PROGRESS
-========================= */
-
-.friend-progress {
-
-    margin-bottom: 25px;
-}
-
-.progress-label {
-
-    display: flex;
-
-    justify-content: space-between;
-
-    margin-bottom: 8px;
-
-    color: #cfd6ff;
-
-    font-size: 14px;
-}
-
-.progress-bar {
-
+.search-box {
     width: 100%;
-
-    height: 10px;
-
-    background: rgba(255,255,255,0.08);
-
-    border-radius: 50px;
-
-    overflow: hidden;
+    padding: 20px;
+    border-radius: 20px;
+    border: 2px solid #3b82f6;
+    background: #0f172a;
+    color: white;
+    font-size: 18px;
+    margin: 25px 0 35px;
+    box-sizing: border-box;
 }
 
-.progress-fill {
+/* =========================================
+   GRID FRAMEWORKS
+========================================= */
 
-    width: 78%;
-
-    height: 100%;
-
-    background:
-    linear-gradient(
-        90deg,
-        #6c63ff,
-        #8f87ff
-    );
+.discover-grid,
+.friends-grid,
+.request-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 28px;
 }
 
-/* =========================
-   BUTTONS
-========================= */
+/* =========================================
+   CARD DESIGNS
+========================================= */
 
-.card-actions {
-
-    display: flex;
-
-    gap: 12px;
-
-    flex-wrap: wrap;
+.discover-card,
+.friend-card,
+.request-card {
+    background: #0f172a;
+    border-radius: 28px;
+    padding: 28px;
+    border: 1px solid rgba(255,255,255,0.08);
+    transition: transform 0.3s ease;
+    position: relative;
+    box-sizing: border-box;
 }
 
-.card-actions a {
+.discover-card:hover,
+.friend-card:hover,
+.request-card:hover {
+    transform: translateY(-6px);
+}
 
+.discover-card img,
+.friend-card img,
+.request-card img {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #3b82f6;
+    margin-bottom: 20px;
+}
+
+.discover-card h3,
+.friend-card h3,
+.request-card h3 {
+    color: white;
+    font-size: 30px;
+    margin-bottom: 8px;
+}
+
+.discover-card p,
+.friend-card p,
+.request-card p {
+    color: #94a3b8;
+    margin-bottom: 20px;
+}
+
+/* =========================================
+   BUTTON TEMPLATES
+========================================= */
+
+.add-btn,
+.accept-btn,
+.challenge-btn,
+.remove-btn,
+.profile-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 22px;
+    border-radius: 16px;
+    font-weight: 700;
     text-decoration: none;
-
-    padding: 12px 18px;
-
-    border-radius: 12px;
-
-    font-size: 14px;
-
-    font-weight: 600;
-
-    transition: 0.3s;
+    border: none;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.2s ease;
+    font-size: 16px;
 }
 
 .add-btn,
-.accept-btn {
-
-    background:
-    linear-gradient(
-        135deg,
-        #6c63ff,
-        #4b44d4
-    );
-
-    color: white;
-}
-
-.view-btn {
-
-    background: #20283a;
-
+.accept-btn,
+.challenge-btn {
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
     color: white;
 }
 
 .remove-btn {
-
-    background: #ff4d67;
-
+    background: #1e293b;
     color: white;
 }
 
-.card-actions a:hover {
-
-    transform: scale(1.05);
+.profile-btn {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
 }
 
-/* =========================
-   EMPTY STATE
-========================= */
-
-.empty-state {
-
-    padding: 40px;
-
-    text-align: center;
-
-    background: #121826;
-
-    border-radius: 24px;
+.friend-actions,
+.discover-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+    flex-wrap: wrap;
 }
 
-/* =========================
-   FLOATING BUTTON
-========================= */
+/* =========================================
+   BADGES & INTERACTION STATES
+========================================= */
 
-.floating-social-btn {
-
-    position: fixed;
-
-    bottom: 30px;
-
-    right: 30px;
-
-    width: 65px;
-
-    height: 65px;
-
+.online-dot {
+    position: absolute;
+    top: 28px;
+    right: 28px;
+    width: 16px;
+    height: 16px;
+    background: #22c55e;
     border-radius: 50%;
-
-    border: none;
-
-    font-size: 24px;
-
-    cursor: pointer;
-
-    color: white;
-
-    background:
-    linear-gradient(
-        135deg,
-        #6c63ff,
-        #4b44d4
-    );
-
-    box-shadow:
-    0 15px 40px rgba(108,99,255,0.4);
-
-    z-index: 999;
+    box-shadow: 0 0 16px #22c55e;
 }
 
-/* =========================
-   RESPONSIVE
-========================= */
+.online-text {
+    color: #22c55e;
+    font-size: 14px;
+    display: block;
+    margin-top: 4px;
+}
 
-@media(max-width:768px){
+.skill-badge {
+    display: inline-block;
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
 
-    .hero-content h1 {
+/* =========================================
+   EMPTY STATE BOXES
+========================================= */
 
+.empty-box {
+    background: rgba(255,255,255,0.03);
+    border: 1px dashed rgba(255,255,255,0.15);
+    border-radius: 20px;
+    padding: 40px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 18px;
+}
+
+/* =========================================
+   ACTIVITY FEED
+========================================= */
+
+.activity-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.activity-card {
+    background: #0f172a;
+    padding: 24px;
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+.activity-card strong {
+    color: white;
+    font-size: 20px;
+}
+
+.activity-card p {
+    color: #cbd5e1;
+    margin-top: 10px;
+    margin-bottom: 0;
+}
+
+/* =========================================
+   RESPONSIVE DESIGN MEDIA QUERIES
+========================================= */
+
+@media (max-width: 768px) {
+    .friends-page {
+        padding: 20px;
+    }
+
+    .friends-hero {
+        padding: 35px;
+    }
+
+    .friends-hero h1 {
         font-size: 42px;
     }
 
-    .hero-stats {
-
-        flex-direction: column;
+    .section-header h2 {
+        font-size: 36px;
     }
+}
+.discover-card img,
+.friend-card img,
+.request-card img {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #3b82f6;
+    margin-bottom: 20px;
+    
+    /* ADD THESE TO PREVENT ALT TEXT OVERLAP */
+    display: block;
+    overflow: hidden;
+    font-size: 11px; /* Keeps fallback alt text tiny if image breaks */
+    color: #94a3b8;
+    text-align: center;
+}
+/* profile view page  */
 
-    .section-header {
+/* =========================PROFILE VIEW========================= */
+.profile-view-page{
+padding:40px;
 
-        gap: 15px;
-    }
+display:grid;
+
+grid-template-columns: 400px 1fr;
+
+gap:30px;
+}
+.profile-card{
+background:#0f172a;
+
+border-radius:30px;
+
+padding:40px;
+
+text-align:center;
+
+border:1px solid rgba(255,255,255,0.08);
+}
+.profile-view-img{
+width:140px;
+height:140px;
+
+border-radius:50%;
+
+object-fit:cover;
+
+border:5px solid #3b82f6;
+
+margin-bottom:20px;
+}
+.profile-card h1{
+font-size:40px;
+
+margin-bottom:10px;
+}
+.profile-card p{
+color:#94a3b8;
+
+margin-bottom:30px;
+}
+.profile-stats{
+display:flex;
+
+justify-content:space-between;
+
+margin-bottom:30px;
+}
+.profile-stat{
+text-align:center;
+}
+.profile-stat h2{
+font-size:32px;
+}
+.challenge-profile-btn{
+display:inline-block;
+
+padding:16px 26px;
+
+border-radius:18px;
+
+background:linear-gradient(
+    135deg,
+    #2563eb,
+    #7c3aed
+);
+
+color:white;
+
+text-decoration:none;
+
+font-weight:700;
+}
+.profile-activity{
+background:#0f172a;
+
+border-radius:30px;
+
+padding:40px;
+}
+.activity-item{
+padding:20px;
+
+border-radius:18px;
+
+background:#111827;
+
+margin-bottom:15px;
+
+color:#cbd5e1;
+}
+
+/* =========================
+CHALLENGE ROOM
+========================= */
+
+.battle-page{
+min-height:100vh;
+padding:40px;
+position:relative;
+overflow:hidden;
+color:white;
+}
+
+.battle-bg{
+position:absolute;
+inset:0;
+background:
+radial-gradient(circle at top left,#7c3aed33,transparent 40%),
+radial-gradient(circle at bottom right,#2563eb33,transparent 40%);
+z-index:-1;
+}
+
+.battle-header{
+text-align:center;
+margin-bottom:50px;
+}
+
+.battle-badge{
+background:#7c3aed;
+padding:10px 18px;
+border-radius:30px;
+font-size:13px;
+font-weight:700;
+display:inline-block;
+margin-bottom:20px;
+}
+
+.battle-header h1{
+font-size:58px;
+margin-bottom:12px;
+}
+
+.battle-header p{
+color:#bdbdbd;
+font-size:18px;
+}
+
+.battle-main{
+display:flex;
+justify-content:center;
+align-items:center;
+gap:40px;
+flex-wrap:wrap;
+}
+
+.battle-card{
+width:320px;
+background:#111827;
+border:1px solid #262626;
+border-radius:28px;
+padding:30px;
+text-align:center;
+position:relative;
+transition:.4s;
+}
+
+.battle-card:hover{
+transform:translateY(-10px);
+}
+
+.battle-avatar{
+width:110px;
+height:110px;
+border-radius:50%;
+object-fit:cover;
+border:4px solid #7c3aed;
+}
+
+.online-status{
+width:14px;
+height:14px;
+border-radius:50%;
+background:#22c55e;
+position:absolute;
+top:28px;
+right:28px;
+}
+
+.vs-circle{
+width:110px;
+height:110px;
+border-radius:50%;
+background:linear-gradient(135deg,#7c3aed,#2563eb);
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:34px;
+font-weight:800;
+box-shadow:0 0 40px #7c3aed66;
+}
+
+.battle-rank{
+display:block;
+margin-top:10px;
+color:#a78bfa;
+}
+
+.battle-stats{
+display:flex;
+justify-content:center;
+gap:15px;
+margin-top:30px;
+}
+
+.stat-box{
+background:#1f2937;
+padding:18px;
+border-radius:18px;
+width:110px;
+}
+
+.stat-box h3{
+font-size:28px;
+}
+
+.stat-box p{
+color:#9ca3af;
+font-size:14px;
+}
+
+.battle-missions{
+margin-top:70px;
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+gap:25px;
+}
+
+.mission-card{
+background:#111827;
+border-radius:24px;
+padding:30px;
+border:1px solid #262626;
+}
+
+.mission-card h3{
+margin-bottom:15px;
+}
+
+.mission-card p{
+color:#9ca3af;
+}
+
+.battle-timeline{
+margin-top:50px;
+}
+
+.timeline-card{
+background:#111827;
+border-radius:24px;
+padding:30px;
+border:1px solid #262626;
+}
+
+.timeline-card ul{
+margin-top:20px;
+}
+
+.timeline-card li{
+margin-bottom:12px;
+color:#d1d5db;
+}
+
+.battle-actions{
+margin-top:50px;
+display:flex;
+justify-content:center;
+gap:20px;
+}
+
+.battle-btn{
+padding:16px 28px;
+border-radius:16px;
+font-weight:700;
+text-decoration:none;
+border:none;
+cursor:pointer;
+}
+
+.primary-btn{
+background:linear-gradient(135deg,#7c3aed,#2563eb);
+color:white;
+}
+
+.secondary-btn{
+background:#1f2937;
+color:white;
 }

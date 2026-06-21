@@ -966,75 +966,186 @@ def toggle(id):
 
     return redirect("/dashboard")
 
+# =========================================
+# FRIENDS HUB
+# =========================================
+
+@app.route("/friends-hub")
+def friends_hub():
+
+    if "user_id" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+
+    current_user = session["user_id"]
+
+    # =========================
+    # ALL USERS
+    # =========================
+
+    users = conn.execute("""
+
+        SELECT *
+        FROM users
+        WHERE id != ?
+
+    """, (current_user,)).fetchall()
+
+    # =========================
+    # FRIENDS
+    # =========================
+
+    friends = conn.execute("""
+
+        SELECT users.*
+
+        FROM friends
+
+        JOIN users
+
+        ON (
+            users.id = friends.user1_id
+            OR
+            users.id = friends.user2_id
+        )
+
+        WHERE
+        (
+            friends.user1_id = ?
+            OR
+            friends.user2_id = ?
+        )
+
+        AND users.id != ?
+
+    """, (
+
+        current_user,
+        current_user,
+        current_user
+
+    )).fetchall()
+
+    # =========================
+    # FRIEND REQUESTS
+    # =========================
+
+    requests = conn.execute("""
+
+        SELECT
+            friend_requests.id,
+            users.username,
+            users.profile_image,
+            users.college
+
+        FROM friend_requests
+
+        JOIN users
+
+        ON users.id = friend_requests.sender_id
+
+        WHERE friend_requests.receiver_id = ?
+        AND friend_requests.status = 'pending'
+
+    """, (current_user,)).fetchall()
+
+    # =========================
+    # ACTIVITY FEED
+    # =========================
+
+    activities = conn.execute("""
+
+        SELECT
+            activity_feed.*,
+            users.username
+
+        FROM activity_feed
+
+        JOIN users
+        ON users.id = activity_feed.user_id
+
+        ORDER BY activity_feed.created_at DESC
+
+        LIMIT 10
+
+    """).fetchall()
+
+    conn.close()
+
+    return render_template(
+
+        "friends/friends_hub.html",
+
+        users=users,
+        friends=friends,
+        requests=requests,
+        activities=activities
+    )
+
+
+# =========================================
+# SEND REQUEST
+# =========================================
+
 @app.route("/send-request/<int:user_id>")
 def send_request(user_id):
 
     if "user_id" not in session:
         return redirect("/login")
 
-    if user_id == session["user_id"]:
-        return redirect("/friends-hub")
-
     conn = get_db_connection()
 
-    existing_request = conn.execute(
-        """
+    existing = conn.execute("""
+
         SELECT *
         FROM friend_requests
+
         WHERE
-        (sender_id=? AND receiver_id=?)
-        OR
-        (sender_id=? AND receiver_id=?)
-        """,
         (
-            session["user_id"],
-            user_id,
-            user_id,
-            session["user_id"]
+            sender_id = ?
+            AND receiver_id = ?
         )
-    ).fetchone()
 
-    existing_friend = conn.execute(
-        """
-        SELECT *
-        FROM friends
-        WHERE
-        (user1_id=? AND user2_id=?)
-        OR
-        (user1_id=? AND user2_id=?)
-        """,
-        (
-            session["user_id"],
-            user_id,
-            user_id,
-            session["user_id"]
-        )
-    ).fetchone()
+    """, (
 
-    if not existing_request and not existing_friend:
+        session["user_id"],
+        user_id
 
-        conn.execute(
-            """
-            INSERT INTO friend_requests
-            (
+    )).fetchone()
+
+    if not existing:
+
+        conn.execute("""
+
+            INSERT INTO friend_requests (
+
                 sender_id,
                 receiver_id,
                 status
+
             )
-            VALUES (?,?,?)
-            """,
-            (
-                session["user_id"],
-                user_id,
-                "pending"
-            )
-        )
+
+            VALUES (?, ?, ?)
+
+        """, (
+
+            session["user_id"],
+            user_id,
+            "pending"
+
+        ))
 
         conn.commit()
 
     conn.close()
 
     return redirect("/friends-hub")
+
+
+# =========================================
+# ACCEPT REQUEST
+# =========================================
 
 @app.route("/accept-request/<int:request_id>")
 def accept_request(request_id):
@@ -1044,45 +1155,52 @@ def accept_request(request_id):
 
     conn = get_db_connection()
 
-    request_data = conn.execute(
-        """
+    request_data = conn.execute("""
+
         SELECT *
         FROM friend_requests
-        WHERE id=?
-        """,
-        (request_id,)
-    ).fetchone()
+
+        WHERE id = ?
+
+    """, (request_id,)).fetchone()
 
     if request_data:
 
-        conn.execute(
-            """
-            INSERT INTO friends
-            (
+        conn.execute("""
+
+            INSERT INTO friends (
+
                 user1_id,
                 user2_id
-            )
-            VALUES (?,?)
-            """,
-            (
-                request_data["sender_id"],
-                request_data["receiver_id"]
-            )
-        )
 
-        conn.execute(
-            """
+            )
+
+            VALUES (?, ?)
+
+        """, (
+
+            request_data["sender_id"],
+            request_data["receiver_id"]
+
+        ))
+
+        conn.execute("""
+
             DELETE FROM friend_requests
-            WHERE id=?
-            """,
-            (request_id,)
-        )
+            WHERE id = ?
+
+        """, (request_id,))
 
         conn.commit()
 
     conn.close()
 
     return redirect("/friends-hub")
+
+
+# =========================================
+# REMOVE FRIEND
+# =========================================
 
 @app.route("/remove-friend/<int:friend_id>")
 def remove_friend(friend_id):
@@ -1092,59 +1210,73 @@ def remove_friend(friend_id):
 
     conn = get_db_connection()
 
-    conn.execute(
-        """
+    conn.execute("""
+
         DELETE FROM friends
+
         WHERE
-        (user1_id=? AND user2_id=?)
-        OR
-        (user1_id=? AND user2_id=?)
-        """,
+
         (
-            session["user_id"],
-            friend_id,
-            friend_id,
-            session["user_id"]
+            user1_id = ?
+            AND user2_id = ?
         )
-    )
+
+        OR
+
+        (
+            user1_id = ?
+            AND user2_id = ?
+        )
+
+    """, (
+
+        session["user_id"],
+        friend_id,
+
+        friend_id,
+        session["user_id"]
+
+    ))
 
     conn.commit()
+
     conn.close()
 
     return redirect("/friends-hub")
 
-@app.route("/requests")
-def requests_page():
 
-    if "user_id" not in session:
-        return redirect("/login")
+# @app.route("/requests")
+# def requests_page():
 
-    conn = get_db_connection()
+#     if "user_id" not in session:
+#         return redirect("/login")
 
-    requests = conn.execute(
-        """
-        SELECT
-            friend_requests.id,
-            users.username,
-            users.profile_image
+#     conn = get_db_connection()
 
-        FROM friend_requests
+#     requests = conn.execute(
+#         """
+#         SELECT
+#             friend_requests.id,
+#             users.username,
+#             users.profile_image
 
-        JOIN users
-        ON friend_requests.sender_id = users.id
+#         FROM friend_requests
 
-        WHERE friend_requests.receiver_id=?
-        AND friend_requests.status='pending'
-        """,
-        (session["user_id"],)
-    ).fetchall()
+#         JOIN users
+#         ON friend_requests.sender_id = users.id
 
-    conn.close()
+#         WHERE friend_requests.receiver_id=?
+#         AND friend_requests.status='pending'
+#         """,
+#         (session["user_id"],)
+#     ).fetchall()
 
-    return render_template(
-        "friends/requests.html",
-        requests=requests
-    )
+#     conn.close()
+
+#     return render_template(
+#         "friends/requests.html",
+#         requests=requests
+#     )
 
 def calculate_streak(user_id):
 
@@ -1195,97 +1327,164 @@ def calculate_streak(user_id):
     conn.close()
 
     return streak
-
 # =========================
-# FRIENDS HUB
+# VIEW USER PROFILE
 # =========================
-
-@app.route("/friends-hub")
-def friends_hub():
-
+@app.route("/profile/<int:user_id>")
+def view_profile(user_id):
     if "user_id" not in session:
+        return redirect("/login")
 
+    conn = get_db_connection()
+
+    user = conn.execute(
+        """
+        SELECT *
+        FROM users
+        WHERE id=?
+        """,
+        (user_id,)
+    ).fetchone()
+
+    if not user:
+
+        conn.close()
+        return "User not found"
+
+    activities = conn.execute(
+        """
+        SELECT *
+        FROM activities
+        WHERE user_id=?
+        ORDER BY id DESC
+        LIMIT 10
+        """,
+        (user_id,)
+    ).fetchall()
+
+    total_friends = conn.execute(
+        """
+        SELECT COUNT(*) as total
+
+        FROM friends
+
+        WHERE
+        user1_id=?
+        OR
+        user2_id=?
+        """,
+        (user_id, user_id)
+    ).fetchone()
+
+    conn.close()
+
+    return render_template(
+        "friends/profile.html",
+        user=user,
+        activities=activities,
+        total_friends=total_friends["total"]
+    )
+
+#CHALLENGE FRIEND
+
+@app.route("/challenge/<int:friend_id>")
+def challenge_friend(friend_id):
+    if "user_id" not in session:
         return redirect("/login")
 
     conn = get_db_connection()
 
     current_user = session["user_id"]
 
-    # =========================
-    # FRIENDS LIST
-    # =========================
-
-    friends = []
-
-    try:
-
-        friends = conn.execute("""
-
-            SELECT users.*
-
-            FROM friends
-
-            JOIN users
-            ON users.id = friends.friend2_id
-
-            WHERE friends.friend1_id = ?
-
-        """, (current_user,)).fetchall()
-
-    except:
-
-        friends = []
-
-
-    # =========================
-    # DISCOVER USERS
-    # =========================
-
-    users = conn.execute("""
-
+    friend = conn.execute(
+        """
         SELECT *
-
         FROM users
+        WHERE id=?
+        """,
+        (friend_id,)
+    ).fetchone()
 
-        WHERE id != ?
+    if not friend:
 
-    """, (current_user,)).fetchall()
+        conn.close()
+        return "Friend not found"
 
-    # =========================
-    # PENDING REQUESTS
-    # =========================
+    existing = conn.execute(
+        """
+        SELECT *
+        FROM challenges
+        WHERE
+        (
+            challenger_id=?
+            AND challenged_id=?
+        )
+        OR
+        (
+            challenger_id=?
+            AND challenged_id=?
+        )
+        """,
+        (
+            current_user,
+            friend_id,
+            friend_id,
+            current_user
+        )
+    ).fetchone()
 
-    requests = conn.execute("""
+    if not existing:
 
-        SELECT friend_requests.id,
-               users.username,
-               users.profile_image,
-               users.college
+        conn.execute(
+            """
+            INSERT INTO challenges
+            (
+                challenger_id,
+                challenged_id,
+                status
+            )
+            VALUES (?,?,?)
+            """,
+            (
+                current_user,
+                friend_id,
+                "active"
+            )
+        )
 
-        FROM friend_requests
+        conn.commit()
 
-        JOIN users
-
-        ON users.id = friend_requests.sender_id
-
-        WHERE friend_requests.receiver_id = ?
-
-        AND friend_requests.status = 'pending'
-
-    """, (current_user,)).fetchall()
+    challenge = conn.execute(
+        """
+        SELECT *
+        FROM challenges
+        WHERE
+        (
+            challenger_id=?
+            AND challenged_id=?
+        )
+        OR
+        (
+            challenger_id=?
+            AND challenged_id=?
+        )
+        """,
+        (
+            current_user,
+            friend_id,
+            friend_id,
+            current_user
+        )
+    ).fetchone()
 
     conn.close()
 
     return render_template(
-
-        "friends/friends_hub.html",
-
-        friends=friends,
-
-        users=users,
-
-        requests=requests
+        "friends/challenge_room.html",
+        friend=friend,
+        challenge=challenge
     )
+
 
 @app.route("/friend-profile/<int:user_id>")
 def friend_profile(user_id):
