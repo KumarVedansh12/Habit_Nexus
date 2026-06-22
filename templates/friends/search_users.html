@@ -30,12 +30,9 @@
             {{ user.username }}
         </h2>
 
-        <a
-            href="/send-request/{{ user.id }}"
-            class="friend-btn"
-        >
-            Send Request
-        </a>
+        <form method="POST" action="{{ url_for('send_request', user_id=user.id) }}">
+            <button type="submit" class="friend-btn">Send Request</button>
+        </form>
 
     </div>
 

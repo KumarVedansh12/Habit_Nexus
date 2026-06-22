@@ -1,129 +1,84 @@
-.calendar-container{
-
-    max-width:1100px;
-
-    margin:auto;
-}
-
-.calendar-header{
-
-    margin-bottom:25px;
-
-    text-align:center;
-}
-
-.calendar-header h2{
-
-    font-size:2rem;
-
-    font-weight:700;
-}
-
-.calendar-grid{
-
-    display:grid;
-
-    grid-template-columns:
-    repeat(7,1fr);
-
-    gap:12px;
-}
-
-.day-name{
-
-    text-align:center;
-
-    font-weight:700;
-
-    padding:12px;
-}
-
-.calendar-day{
-
-    position:relative;
-
-    min-height:110px;
-
-    padding:12px;
-
-    border-radius:16px;
-
-    background:#111827;
-
-    border:1px solid #1f2937;
-
-    cursor:pointer;
-
-    transition:0.25s ease;
-}
-
-.calendar-day:hover{
-
-    transform:translateY(-4px);
-
-    border-color:#3b82f6;
-}
-
-.day-number{
-
-    font-size:1.2rem;
-
-    font-weight:700;
-}
-
-.activity-badge{
-
-    position:absolute;
-
-    bottom:12px;
-
-    right:12px;
-
-    padding:6px 10px;
-
-    border-radius:999px;
-
-    background:#22c55e;
-
-    color:white;
-
-    font-size:.85rem;
-
-    font-weight:600;
-}
-
-.empty{
-
-    background:transparent;
-
-    border:none;
-
-    cursor:default;
-}
-.modal{
-
-    display:none;
-
-    position:fixed;
-
-    inset:0;
-
-    background:rgba(0,0,0,.6);
-
-    z-index:1000;
-}
-
-.modal-content{
-
-    width:500px;
-
-    max-width:90%;
-
-    margin:100px auto;
-
-    padding:25px;
-
-    border-radius:16px;
-
-    background:#111827;
+.habit-calendar-page { width: min(1180px, 100%); margin: 0 auto; padding: 28px 24px 64px; animation: calendar-rise .55s ease both; }
+@keyframes calendar-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+.habit-calendar-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; margin-bottom: 24px; }
+.habit-calendar-title > div > span,
+.habit-calendar-nav span { color: #38bdf8; font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.habit-calendar-title h1 { margin: 7px 0 9px; font-size: clamp(34px, 5vw, 52px); line-height: 1.08; letter-spacing: -.045em; }
+.habit-calendar-title p { max-width: 680px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.habit-calendar-title > a { display: inline-grid; min-height: 42px; padding: 0 17px; place-items: center; border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--text); font-size: 12px; font-weight: 700; text-decoration: none; }
+.habit-calendar-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 13px; margin-bottom: 18px; }
+.habit-calendar-summary article,
+.habit-calendar-shell { border: 1px solid var(--border); background: var(--card); box-shadow: 0 16px 38px rgba(2, 6, 23, .1); }
+.habit-calendar-summary article { padding: 19px; border-radius: 17px; animation: calendar-card-in .5s ease both; transition: transform .22s ease, border-color .22s ease; }
+.habit-calendar-summary article:nth-child(2) { animation-delay: .06s; }
+.habit-calendar-summary article:nth-child(3) { animation-delay: .12s; }
+.habit-calendar-summary article:nth-child(4) { animation-delay: .18s; }
+.habit-calendar-summary article:hover { border-color: rgba(56, 189, 248, .45); transform: translateY(-3px); }
+@keyframes calendar-card-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.habit-calendar-summary span,
+.habit-calendar-summary strong { display: block; }
+.habit-calendar-summary span { color: var(--muted); font-size: 10px; }
+.habit-calendar-summary strong { margin-top: 8px; font-size: 24px; }
+.habit-calendar-shell { padding: 25px; border-radius: 21px; }
+.habit-calendar-nav { display: grid; grid-template-columns: 90px 1fr 90px; align-items: center; margin-bottom: 14px; text-align: center; }
+.habit-calendar-nav h2 { margin-top: 4px; font-size: 22px; }
+.habit-calendar-nav a { padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--card2); color: var(--text); font-size: 10px; font-weight: 700; text-decoration: none; }
+.habit-calendar-legend { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 13px; margin-bottom: 18px; }
+.habit-calendar-legend span { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 9px; }
+.habit-calendar-legend i { width: 9px; height: 9px; border-radius: 3px; }
+.habit-calendar-legend .level-low { background: rgba(56, 189, 248, .3); }
+.habit-calendar-legend .level-mid { background: rgba(56, 189, 248, .6); }
+.habit-calendar-legend .level-full { background: #38bdf8; }
+.habit-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 9px; }
+.habit-calendar-weekday { padding: 9px; color: var(--muted); font-size: 9px; font-weight: 800; text-align: center; text-transform: uppercase; }
+.habit-calendar-empty { min-height: 96px; }
+.habit-calendar-day { position: relative; display: flex; min-width: 0; min-height: 96px; padding: 11px; overflow: hidden; border: 1px solid var(--border); border-radius: 13px; background: var(--card2); color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: transform .2s ease, border-color .2s ease; }
+.habit-calendar-day:hover,
+.habit-calendar-day:focus-visible { border-color: #38bdf8; outline: none; transform: translateY(-2px); }
+.habit-calendar-day.is-today { box-shadow: inset 0 0 0 1px #38bdf8; }
+.habit-calendar-day.level-low { background: linear-gradient(145deg, rgba(56, 189, 248, .07), var(--card2)); }
+.habit-calendar-day.level-mid { background: linear-gradient(145deg, rgba(56, 189, 248, .13), var(--card2)); }
+.habit-calendar-day.level-full { background: linear-gradient(145deg, rgba(56, 189, 248, .2), var(--card2)); }
+.habit-calendar-number { font-size: 13px; font-weight: 800; }
+.habit-calendar-count { position: absolute; top: 11px; right: 10px; color: var(--muted); font-size: 9px; }
+.habit-calendar-bar { position: absolute; right: 10px; bottom: 10px; left: 10px; height: 5px; overflow: hidden; border-radius: 999px; background: var(--input); }
+.habit-calendar-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #0ea5e9, #38bdf8); transform-origin: left; animation: calendar-bar-grow .65s ease both; }
+@keyframes calendar-bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.habit-day-modal[hidden] { display: none; }
+.habit-day-modal { position: fixed; z-index: 1200; inset: 0; display: grid; padding: 20px; place-items: center; background: rgba(2, 6, 23, .72); backdrop-filter: blur(6px); }
+.modal-open { overflow: hidden; }
+.habit-day-dialog { width: min(510px, 100%); max-height: min(700px, 90vh); padding: 23px; overflow-y: auto; border: 1px solid var(--border); border-radius: 20px; background: var(--card); box-shadow: 0 28px 80px rgba(0, 0, 0, .36); animation: calendar-dialog-in .24s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes calendar-dialog-in { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.habit-day-dialog header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.habit-day-dialog header span { color: #38bdf8; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.habit-day-dialog h2 { margin-top: 5px; font-size: 20px; }
+.habit-day-dialog header button { padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--card2); color: var(--text); font: inherit; font-size: 9px; cursor: pointer; }
+.habit-day-summary { margin: 18px 0 12px; color: var(--muted); font-size: 11px; }
+.habit-day-tasks { display: grid; gap: 8px; }
+.habit-day-task { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px; border: 1px solid var(--border); border-radius: 11px; background: var(--card2); }
+.habit-day-task strong { font-size: 11px; }
+.habit-day-task span { color: #f87171; font-size: 9px; }
+.habit-day-task.is-complete span { color: #4ade80; }
+.habit-calendar-nav a,
+.habit-calendar-title > a,
+.habit-day-dialog header button { transition: border-color .2s ease, background .2s ease, transform .2s ease; }
+.habit-calendar-nav a:hover,
+.habit-calendar-title > a:hover,
+.habit-day-dialog header button:hover { border-color: #38bdf8; background: rgba(56, 189, 248, .1); transform: translateY(-1px); }
+.habit-calendar-nav a:focus-visible,
+.habit-calendar-title > a:focus-visible,
+.habit-day-dialog header button:focus-visible { outline: 2px solid #38bdf8; outline-offset: 3px; }
+.habit-day-empty { padding: 24px; color: var(--muted); font-size: 11px; text-align: center; }
+@media (max-width: 800px) { .habit-calendar-summary { grid-template-columns: repeat(2, 1fr); } .habit-calendar-shell { padding: 17px; overflow-x: auto; } .habit-calendar-grid { min-width: 650px; } .habit-calendar-nav,
+.habit-calendar-legend { min-width: 650px; } }
+@media (max-width: 620px) { .habit-calendar-page { padding: 20px 14px 44px; } .habit-calendar-title { align-items: flex-start; flex-direction: column; } .habit-calendar-title > a { width: 100%; } }
+@media (max-width: 420px) { .habit-calendar-summary { grid-template-columns: 1fr 1fr; } }
+@media (prefers-reduced-motion: reduce) {
+    .habit-calendar-page,
+    .habit-calendar-summary article,
+    .habit-calendar-bar i,
+    .habit-day-dialog { animation: none; }
+    .habit-calendar-summary article:hover,
+    .habit-calendar-nav a:hover,
+    .habit-calendar-title > a:hover { transform: none; }
 }

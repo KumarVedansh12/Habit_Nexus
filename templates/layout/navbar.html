@@ -1,31 +1,17 @@
-<div class="navbar">
-
-    <div class="welcome-section">
-
-        <h3>
-        Welcome, {{ session.get('username', 'User') }}
-    </h3>
-
-        <p>
-            Stay consistent and beat your streak today.
-        </p>
-
+{% set page_titles = {
+    'dashboard': 'Dashboard', 'analytics': 'Analytics', 'calendar': 'Calendar',
+    'dsa_tracker': 'DSA workspace', 'friends_hub': 'Friends', 'leaderboard': 'Leaderboard',
+    'profile': 'Public profile', 'settings': 'Settings', 'notifications': 'Notifications',
+    'view_profile': 'Student profile', 'challenge_friend': 'Challenge',
+    'developer_dashboard': 'Developer console'
+} %}
+<header class="app-navbar">
+    <div class="navbar-leading">
+        <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-controls="appSidebar" aria-expanded="false"><span></span><span></span><span></span><b>Menu</b></button>
+        <div><span>HabitNexus</span><h2>{{ page_titles.get(request.endpoint, 'Workspace') }}</h2></div>
     </div>
-
-    <div class="profile-section">
-
-        <button
-            class="dark-btn"
-            onclick="toggleMode()"
-        >
-            🌙
-        </button>
-
-        <img
-        src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
-        class="profile-img"
-    >
-
+    <div class="navbar-account">
+        <button type="button" class="theme-toggle" onclick="toggleMode()" aria-label="Toggle color theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg></button>
+        <a href="{{ url_for('profile') }}" class="navbar-user"><div><strong>{{ current_user.username }}</strong><span>View profile</span></div><img src="{{ current_user.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt="{{ current_user.username }} profile picture"></a>
     </div>
-
-</div>
+</header>

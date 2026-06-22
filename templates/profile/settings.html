@@ -1,41 +1,43 @@
 {% extends "layout/base.html" %}
 
 {% block content %}
+<main class="account-settings-page">
+    <header class="account-page-header">
+        <div><span>Account controls</span><h1>Settings and security</h1><p>Manage private sign-in details separately from your public student profile.</p></div>
+    </header>
 
-<h1>
-    Settings ⚙️
-</h1>
+    <div class="settings-layout">
+        <aside class="settings-summary">
+            <img src="{{ user.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt="">
+            <h2>{{ user.username }}</h2>
+            <p>{{ user.email }}</p>
+            <div><span>Account ID</span><strong>#{{ user.id }}</strong></div>
+            <a href="{{ url_for('profile') }}">Edit public profile</a>
+        </aside>
 
-<div class="settings-card">
+        <div class="settings-forms">
+            <form method="POST" class="account-form-card">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="account">
+                <header><span>Account identity</span><h2>Username and email</h2><p>Your current password is required to save these changes.</p></header>
+                <label><span>Username</span><input type="text" name="username" minlength="3" maxlength="30" value="{{ user.username }}" autocomplete="username" required></label>
+                <label><span>Email address</span><input type="email" name="email" value="{{ user.email }}" autocomplete="email" required></label>
+                <label><span>Current password</span><input type="password" name="current_password" autocomplete="current-password" required></label>
+                <button type="submit">Update account details</button>
+            </form>
 
-    <form method="POST">
-
-        <input
-            type="text"
-            name="username"
-            placeholder="Username"
-            value="{{ user.username }}"
-        >
-
-        <input
-            type="email"
-            name="email"
-            placeholder="Email"
-            value="{{ user.email }}"
-        >
-
-        <button type="submit">
-            Update Profile
-        </button>
-
-        <input
-        type="password"
-        name="password"
-        placeholder="New Password"
-    >
-
-    </form>
-
-</div>
-
+            <form method="POST" class="account-form-card security-card">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="password">
+                <header><span>Security</span><h2>Change password</h2><p>Use at least eight characters and choose a new password.</p></header>
+                <label><span>Current password</span><input type="password" name="current_password" autocomplete="current-password" required></label>
+                <div class="account-field-grid">
+                    <label><span>New password</span><input type="password" name="new_password" minlength="8" autocomplete="new-password" required></label>
+                    <label><span>Confirm new password</span><input type="password" name="confirm_password" minlength="8" autocomplete="new-password" required></label>
+                </div>
+                <button type="submit">Change password</button>
+            </form>
+        </div>
+    </div>
+</main>
 {% endblock %}

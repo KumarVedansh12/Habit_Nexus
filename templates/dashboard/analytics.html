@@ -1,242 +1,125 @@
 {% extends "layout/base.html" %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/analytics.css') }}">
+{% endblock %}
+
 {% block content %}
-
-<div class="analytics-page">
-
-    <h1>
-        Analytics Dashboard 📊
-    </h1>
-
-    <div class="stats-grid">
-
-        <div class="stat-card">
-            <h3>Total Tasks</h3>
-            <h1>{{ total }}</h1>
+<main class="student-analytics">
+    <header class="analytics-header analytics-enter">
+        <div>
+            <span class="analytics-kicker">Last 14 days</span>
+            <h1>Your progress review</h1>
+            <p>See where your routine is reliable, where it slips, and what to improve next.</p>
         </div>
+        <a href="{{ url_for('calendar') }}" class="analytics-link-button">Open calendar</a>
+    </header>
 
-        <div class="stat-card">
-            <h3>Completed</h3>
-            <h1>{{ completed }}</h1>
+    <section class="analytics-summary-grid analytics-enter" aria-label="Progress summary">
+        <article><span>Current habits</span><strong>{{ completed }}/{{ total }}</strong><small>{{ progress }}% completed today</small></article>
+        <article><span>Current streak</span><strong>{{ streak }} days</strong><small>All logged habits completed</small></article>
+        <article><span>Consistency</span><strong>{{ consistency_days }}/14</strong><small>Days with at least one completion</small></article>
+        <article><span>DSA growth</span><strong>+{{ dsa_growth }}</strong><small>Problems since first recent snapshot</small></article>
+    </section>
+
+    <section class="analytics-coach analytics-enter">
+        <div>
+            <span class="analytics-kicker">Progress signal</span>
+            {% if average_rate >= 80 %}
+            <h2>Your routine is highly reliable.</h2>
+            <p>You averaged {{ average_rate }}% completion over the review window. Protect the schedule that is already working.</p>
+            {% elif average_rate >= 50 %}
+            <h2>You have momentum, but it is uneven.</h2>
+            <p>Your average completion rate is {{ average_rate }}%. Simplify the weakest habit and aim for a repeatable minimum.</p>
+            {% elif total_completions %}
+            <h2>Make the plan easier to repeat.</h2>
+            <p>Your average completion rate is {{ average_rate }}%. Reduce scope and focus on one daily non-negotiable.</p>
+            {% else %}
+            <h2>Start with one completed day.</h2>
+            <p>No habit completions were recorded in this window. Log a small action today to establish a baseline.</p>
+            {% endif %}
         </div>
+        <div class="analytics-coach-score"><strong>{{ average_rate }}%</strong><span>Average completion</span></div>
+    </section>
 
-        <div class="stat-card">
-            <h3>Progress</h3>
-            <h1>{{ progress }}%</h1>
+    <section class="analytics-chart-grid analytics-enter">
+        <article class="analytics-panel">
+            <div class="analytics-panel-heading"><div><span class="analytics-kicker">Daily output</span><h2>Completed habits</h2></div><small>{{ total_completions }} total</small></div>
+            <div id="habitCompletionChart" class="analytics-chart"></div>
+        </article>
+        <article class="analytics-panel">
+            <div class="analytics-panel-heading"><div><span class="analytics-kicker">Reliability</span><h2>Completion rate</h2></div><small>Daily percentage</small></div>
+            <div id="habitRateChart" class="analytics-chart"></div>
+        </article>
+    </section>
+
+    <section class="analytics-insight-grid analytics-enter">
+        <article>
+            <span>Most consistent habit</span>
+            <strong>{{ best_habit.task_name if best_habit else 'No data yet' }}</strong>
+            <p>{% if best_habit %}Completed on {{ best_habit.completed_days }} of {{ best_habit.logged_days }} logged days.{% else %}Log your routines to reveal a strongest habit.{% endif %}</p>
+        </article>
+        <article>
+            <span>Needs attention</span>
+            <strong>{{ needs_attention.task_name if needs_attention else 'No data yet' }}</strong>
+            <p>{% if needs_attention %}Current reliability is {{ needs_attention.rate }}%. Try reducing its daily scope.{% else %}A recommendation will appear after you log habits.{% endif %}</p>
+        </article>
+        <article>
+            <span>Best recent day</span>
+            <strong>{{ best_day }}</strong>
+            <p>{% if total_completions %}Your highest number of completions occurred on this day.{% else %}Complete a habit to establish your first benchmark.{% endif %}</p>
+        </article>
+    </section>
+
+    <section class="analytics-panel analytics-enter">
+        <div class="analytics-panel-heading"><div><span class="analytics-kicker">Habit breakdown</span><h2>Reliability by habit</h2></div><small>Recent 14-day window</small></div>
+        {% if habit_performance %}
+        <div class="habit-performance-list">
+            {% for habit in habit_performance %}
+            <article>
+                <div class="habit-performance-copy"><div><strong>{{ habit.task_name }}</strong><span>{{ habit.completed_days }} completed / {{ habit.logged_days }} logged</span></div><b>{{ habit.rate }}%</b></div>
+                <div class="habit-performance-track"><span style="width: {{ habit.rate }}%"></span></div>
+            </article>
+            {% endfor %}
         </div>
-
-        <div class="stat-card">
-            <h3>Current Streak</h3>
-            <h1>{{ streak }}</h1>
-        </div>
-
-    </div>
-
-    <div class="insight-card">
-
-        <h2>
-            🏆 Best Habit
-        </h2>
-
-        <p>
-            {{ best_habit }}
-        </p>
-
-    </div>
-
-    <div class="charts-grid">
-
-    <!-- RADIAL CHART -->
-
-    <div class="chart-card">
-
-        <h2>
-            Overall Progress
-        </h2>
-
-        <div id="progressRadial"></div>
-
-    </div>
-
-    <!-- AREA CHART -->
-
-    <div class="chart-card">
-
-        <h2>
-            Activity Trend
-        </h2>
-
-        <div id="activityBar"></div>
-
-    </div>
-
-</div>
-
-</div>
+        {% else %}
+        <div class="analytics-empty"><strong>No habits to analyze</strong><span>Add routines and log them from your dashboard to build useful analytics.</span></div>
+        {% endif %}
+    </section>
+</main>
 
 <script>
-
-document.addEventListener(
-    "DOMContentLoaded",
-    function(){
-
-        // RADIAL PROGRESS
-
-        var radialOptions = {
-
-            series: [{{ progress|default(0) }}],
-
-            chart: {
-
-                type: "radialBar",
-
-                height: 280
-            },
-
-            plotOptions: {
-
-                radialBar: {
-
-                    hollow: {
-
-                        size: "70%"
-                    },
-
-                    track: {
-
-                        strokeWidth: "100%"
-                    },
-
-                    dataLabels: {
-
-                        name: {
-
-                            show: true,
-
-                            fontSize: "18px"
-                        },
-
-                        value: {
-
-                            show: true,
-
-                            fontSize: "32px"
-                        }
-                    }
-                }
-            },
-
-            labels: [
-                "Progress"
-            ],
-
-            tooltip: {
-
-                theme: "dark"
-            }
-
-        };
-
-        var radialChart = new ApexCharts(
-
-            document.querySelector(
-                "#progressRadial"
-            ),
-
-            radialOptions
-
-        );
-
-        radialChart.render();
-
-        // ACTIVITY BAR CHART
-                
-        var barOptions = {
-
-            series: [{
-
-                name: "Completed Tasks",
-
-                data: {{ completion_data|tojson }}
-            }],
-
-            chart: {
-
-                type: "bar",
-
-                height: 350,
-
-                toolbar: {
-
-                    show: false
-                }
-            },
-
-            plotOptions: {
-
-                bar: {
-
-                    borderRadius: 6,
-
-                    columnWidth: "45%"
-                }
-            },
-
-            dataLabels: {
-
-                enabled: true
-            },
-
-            xaxis: {
-
-                categories:
-                {{ labels|tojson }}
-            },
-
-            yaxis: {
-
-                min: 0,
-
-                forceNiceScale: true,
-
-                labels: {
-
-                    formatter: function(value){
-
-                        return Math.round(value);
-                    }
-                }
-            },
-
-            tooltip: {
-
-                theme: "dark",
-
-                y: {
-
-                    formatter: function(value){
-
-                        return value + " Tasks";
-                    }
-                }
-            }
-
-        };
-
-        var barChart = new ApexCharts(
-
-            document.querySelector(
-                "#activityBar"
-            ),
-
-            barOptions
-
-        );
-
-        barChart.render();
-
-    }
-);
-
+document.addEventListener("DOMContentLoaded", function () {
+    if (!window.ApexCharts) return;
+    const textColor = getComputedStyle(document.body).getPropertyValue("--muted").trim() || "#94a3b8";
+    const gridColor = getComputedStyle(document.body).getPropertyValue("--border").trim() || "#334155";
+    const categories = {{ labels|tojson }};
+    const common = {
+        chart: { height: 300, toolbar: { show: false }, animations: { enabled: true, easing: "easeinout", speed: 750 } },
+        dataLabels: { enabled: false },
+        xaxis: { categories: categories, labels: { rotate: -35, style: { colors: textColor, fontSize: "10px" } } },
+        grid: { borderColor: gridColor, strokeDashArray: 4 },
+        tooltip: { theme: document.body.classList.contains("light-mode") ? "light" : "dark" }
+    };
+
+    new ApexCharts(document.querySelector("#habitCompletionChart"), {
+        ...common,
+        series: [{ name: "Completed", data: {{ completion_data|tojson }} }],
+        chart: { ...common.chart, type: "area" },
+        colors: ["#6366f1"],
+        stroke: { curve: "smooth", width: 3 },
+        fill: { type: "gradient", gradient: { opacityFrom: .4, opacityTo: .04 } },
+        yaxis: { min: 0, forceNiceScale: true, labels: { style: { colors: textColor }, formatter: value => Math.round(value) } }
+    }).render();
+
+    new ApexCharts(document.querySelector("#habitRateChart"), {
+        ...common,
+        series: [{ name: "Completion rate", data: {{ completion_rates|tojson }} }],
+        chart: { ...common.chart, type: "bar" },
+        colors: ["#14b8a6"],
+        plotOptions: { bar: { borderRadius: 5, columnWidth: "55%" } },
+        yaxis: { min: 0, max: 100, tickAmount: 4, labels: { style: { colors: textColor }, formatter: value => Math.round(value) + "%" } }
+    }).render();
+});
 </script>
 {% endblock %}

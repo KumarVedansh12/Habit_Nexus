@@ -1,249 +1,82 @@
 {% extends "layout/base.html" %}
 
-{% block extra_css %}
-
-<link
-    rel="stylesheet"
-    href="{{ url_for('static', filename='css/friends.css') }}"
->
-
-{% endblock %}
-
 {% block content %}
+<main class="challenge-page">
+    <a href="{{ url_for('friends_hub') }}" class="challenge-back">Back to friends</a>
 
-<section class="battle-page">
-
-
-<div class="battle-bg"></div>
-
-<div class="battle-header">
-
-    <span class="battle-badge">
-        ⚔ LIVE CODING BATTLE
-    </span>
-
-    <h1>
-        Challenge Arena
-    </h1>
-
-    <p>
-        Compete with your friend and dominate the leaderboard.
-    </p>
-
-</div>
-
-<div class="battle-main">
-
-    <!-- PLAYER 1 -->
-
-    <div class="battle-card self-card">
-
-        <div class="battle-top">
-
-            <div class="online-status"></div>
-
-            <img
-                src="{{ session.get('profile_image', url_for('static', filename='images/default.png')) }}"
-                class="battle-avatar"
-            >
-
+    <section class="challenge-heading">
+        <div>
+            <span class="challenge-status {{ challenge.status if challenge else 'ready' }}">
+                {{ challenge.status|title if challenge else 'Ready to start' }}
+            </span>
+            <h1>Progress challenge</h1>
+            <p>A live comparison based on recorded DSA progress, completed habits, and current streaks.</p>
         </div>
+        {% if challenge %}
+        <div class="challenge-meta"><span>Challenge #{{ challenge.id }}</span><small>Started {{ challenge.created_at }}</small></div>
+        {% else %}
+        <form method="POST" action="{{ url_for('challenge_friend', friend_id=friend.id) }}">
+            <button type="submit" class="challenge-primary-button">Start challenge</button>
+        </form>
+        {% endif %}
+    </section>
 
-        <h2>
-            You
-        </h2>
-
-        <span class="battle-rank">
-            🔥 Active Challenger
-        </span>
-
-        <div class="battle-stats">
-
-            <div class="stat-box">
-
-                <h3>
-                    124
-                </h3>
-
-                <p>
-                    Problems
-                </p>
-
+    <section class="challenge-scoreboard">
+        {% for competitor in [current_user, friend] %}
+        <article class="challenge-competitor {% if leader == competitor.id %}is-leading{% endif %}">
+            <div class="challenge-person">
+                <img src="{{ competitor.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt="{{ competitor.username }} profile picture">
+                <div>
+                    <span>{{ 'You' if competitor.id == current_user.id else 'Friend' }}</span>
+                    <h2>{{ competitor.username }}</h2>
+                    <p>{{ competitor.branch or competitor.college or 'Engineering student' }}</p>
+                </div>
+                {% if leader == competitor.id %}<strong class="challenge-leader">Currently ahead</strong>{% endif %}
             </div>
-
-            <div class="stat-box">
-
-                <h3>
-                    12
-                </h3>
-
-                <p>
-                    Streak
-                </p>
-
+            <div class="challenge-total"><strong>{{ competitor.score }}</strong><span>Momentum score</span></div>
+            <div class="challenge-stat-grid">
+                <div><strong>{{ competitor.dsa_solved }}</strong><span>DSA solved</span></div>
+                <div><strong>{{ competitor.habits_completed }}/{{ competitor.habits_total }}</strong><span>Habits done</span></div>
+                <div><strong>{{ competitor.streak }}</strong><span>Day streak</span></div>
+                <div><strong>{{ competitor.wins }}</strong><span>Past wins</span></div>
             </div>
+            <a href="{{ url_for('view_profile', user_id=competitor.id) }}" class="challenge-profile-link">View profile</a>
+        </article>
+        {% if loop.first %}<div class="challenge-versus">VS</div>{% endif %}
+        {% endfor %}
+    </section>
 
+    <p class="challenge-formula">Momentum score = DSA solved + (completed habits x 5) + (current streak x 3).</p>
+
+    <section class="challenge-insights">
+        <article>
+            <span>DSA comparison</span>
+            <strong>{{ current_user.dsa_solved }} vs {{ friend.dsa_solved }}</strong>
+            <p>{{ current_user.username if current_user.dsa_solved >= friend.dsa_solved else friend.username }} has recorded more solved problems.</p>
+        </article>
+        <article>
+            <span>Consistency comparison</span>
+            <strong>{{ current_user.streak }} vs {{ friend.streak }} days</strong>
+            <p>{{ current_user.username if current_user.streak >= friend.streak else friend.username }} has the stronger current streak.</p>
+        </article>
+        <article>
+            <span>Habit comparison</span>
+            <strong>{{ current_user.habits_completed }} vs {{ friend.habits_completed }}</strong>
+            <p>Completed habits currently recorded on each dashboard.</p>
+        </article>
+    </section>
+
+    <section class="challenge-activity">
+        <div class="challenge-section-heading"><span>Shared timeline</span><h2>Latest progress</h2></div>
+        {% if recent_activity %}
+        <div class="challenge-activity-list">
+            {% for activity in recent_activity %}
+            <article><span class="challenge-activity-dot"></span><div><strong>{{ activity.username }}</strong><p>{{ activity.activity }}</p><time>{{ activity.created_at }}</time></div></article>
+            {% endfor %}
         </div>
-
-    </div>
-
-    <!-- VS -->
-
-    <div class="vs-section">
-
-        <div class="vs-circle">
-
-            VS
-
-        </div>
-
-    </div>
-
-    <!-- PLAYER 2 -->
-
-    <div class="battle-card opponent-card">
-
-        <div class="battle-top">
-
-            <div class="online-status active"></div>
-
-            <img
-                src="{{ friend.profile_image if friend.profile_image else url_for('static', filename='images/default.png') }}"
-                class="battle-avatar"
-            >
-
-        </div>
-
-        <h2>
-            {{ friend.username }}
-        </h2>
-
-        <span class="battle-rank">
-            🚀 DSA Warrior
-        </span>
-
-        <div class="battle-stats">
-
-            <div class="stat-box">
-
-                <h3>
-                    98
-                </h3>
-
-                <p>
-                    Problems
-                </p>
-
-            </div>
-
-            <div class="stat-box">
-
-                <h3>
-                    8
-                </h3>
-
-                <p>
-                    Streak
-                </p>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-<!-- BATTLE TASKS -->
-
-<section class="battle-missions">
-
-    <div class="mission-card">
-
-        <h3>
-            🧠 Today's Goal
-        </h3>
-
-        <p>
-            Solve 5 Medium Problems
-        </p>
-
-    </div>
-
-    <div class="mission-card">
-
-        <h3>
-            ⚡ Speed Battle
-        </h3>
-
-        <p>
-            First to solve wins bonus points
-        </p>
-
-    </div>
-
-    <div class="mission-card">
-
-        <h3>
-            🔥 Streak Clash
-        </h3>
-
-        <p>
-            Maintain coding consistency
-        </p>
-
-    </div>
-
-</section>
-
-<!-- BATTLE TIMELINE -->
-
-<section class="battle-timeline">
-
-    <div class="timeline-card">
-
-        <h3>
-            📈 Recent Activity
-        </h3>
-
-        <ul>
-
-            <li>
-                Solved Binary Search
-            </li>
-
-            <li>
-                Completed DP Challenge
-            </li>
-
-            <li>
-                Won Weekly Streak
-            </li>
-
-        </ul>
-
-    </div>
-
-</section>
-
-<div class="battle-actions">
-
-    <a
-        href="/friends-hub"
-        class="battle-btn secondary-btn"
-    >
-        ← Back
-    </a>
-
-    <button class="battle-btn primary-btn">
-
-        🚀 Start Battle
-
-    </button>
-
-</div>
-
-
-</section>
-
+        {% else %}
+        <div class="challenge-empty">No activity has been recorded for either competitor yet.</div>
+        {% endif %}
+    </section>
+</main>
 {% endblock %}

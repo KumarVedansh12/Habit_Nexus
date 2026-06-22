@@ -1,112 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>Register | Routine Battle</title>
-
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
-    >
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-
-    <link
-        rel="preconnect"
-        href="https://fonts.gstatic.com"
-        crossorigin
-    >
-
-    <link
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Create account | HabitNexus</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/readability.css') }}">
 </head>
-
-<body>
-
-    <div class="auth-container">
-
-        <div class="auth-left">
-
-            <h1>
-                Join Routine Battle 🚀
-            </h1>
-
-            <p>
-                Build routines,
-                stay consistent,
-                and compete with friends.
-            </p>
-
-            <img
-                src="https://cdn-icons-png.flaticon.com/512/4140/4140048.png"
-            >
-
-        </div>
-
-        <div class="auth-right">
-
-            <div class="auth-card">
-
-                <h2>
-                    Register
-                </h2>
-
-                <form method="POST">
-
-                    <input
-                        type="text"
-                        name="username"
-                        placeholder="Username"
-                        required
-                    >
-
-                    <input
-                        type="email"
-                        name="email"
-                        placeholder="Email"
-                        required
-                    >
-
-                    <input
-                        type="password"
-                        name="password"
-                        placeholder="Password"
-                        required
-                    >
-
-                    <button type="submit">
-                        Create Account
-                    </button>
-
+<body class="auth-page">
+    <main class="auth-shell">
+        <section class="auth-story">
+            <a href="{{ url_for('home') }}" class="auth-brand"><span>HN</span><strong>HabitNexus</strong></a>
+            <div><span class="auth-kicker">Start with a clear system</span><h1>Turn engineering goals into daily progress.</h1><p>Create a workspace for routines, coding practice, analytics, and friendly competition.</p></div>
+            <ul><li>Private account details</li><li>Public student progress profile</li><li>Exportable habit and DSA history</li></ul>
+        </section>
+        <section class="auth-form-side">
+            <div class="auth-panel">
+                <span class="auth-kicker">Create your account</span>
+                <h2>Build your student workspace</h2>
+                <p>Use at least eight characters for your password.</p>
+                {% if error %}<div class="auth-alert error">{{ error }}</div>{% endif %}
+                <form method="POST" class="account-form">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <label><span>Username</span><input type="text" name="username" value="{{ request.form.get('username', '') }}" minlength="3" maxlength="30" autocomplete="username" required autofocus></label>
+                    <label><span>Email</span><input type="email" name="email" value="{{ request.form.get('email', '') }}" autocomplete="email" required></label>
+                    <label><span>Password</span><input type="password" name="password" minlength="8" autocomplete="new-password" required></label>
+                    <label><span>Confirm password</span><input type="password" name="confirm_password" minlength="8" autocomplete="new-password" required></label>
+                    <button type="submit">Create account</button>
                 </form>
-
-                <p class="auth-link">
-
-                    Already have an account?
-
-                    <a href="/login">
-                        Login
-                    </a>
-
-                </p>
-
+                <p class="auth-switch">Already registered? <a href="{{ url_for('login') }}">Sign in</a></p>
             </div>
-
-        </div>
-
-    </div>
-
+        </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
 </body>
-
 </html>

@@ -11,6 +11,8 @@
         content="width=device-width, initial-scale=1.0"
     >
 
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
     <title>
         HabitNexus
     </title>
@@ -39,20 +41,33 @@
         rel="stylesheet"
         href="{{ url_for('static', filename='css/calendar.css') }}"
     >
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}">
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.1/dist/apexcharts.min.js"></script>
     {% block extra_css %}
     {% endblock %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/readability.css') }}">
 
 </head>
 
-<body>
+<body class="app-shell">
 
-    {% include 'layout/sidebar.html' %}
+    {% if current_user %}
+        {% include 'layout/sidebar.html' %}
+        <button type="button" class="sidebar-backdrop" id="sidebarBackdrop" aria-label="Close navigation"></button>
+    {% endif %}
 
-    <div class="main-content">
+    <div class="main-content {% if not current_user %}without-sidebar{% endif %}">
 
-        {% include 'layout/navbar.html' %}
+        {% if current_user %}{% include 'layout/navbar.html' %}{% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-stack" role="status">
+                {% for category, message in messages %}<div class="flash-message flash-{{ category }}">{{ message }}</div>{% endfor %}
+            </div>
+            {% endif %}
+        {% endwith %}
 
         <div class="page-content">
 
@@ -60,6 +75,8 @@
             {% endblock %}
 
         </div>
+
+        {% include 'layout/footer.html' %}
 
     </div>
 
@@ -76,6 +93,8 @@
             filename='js/charts.js'
         ) }}"
     ></script>
+    <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
 
 </body>
 

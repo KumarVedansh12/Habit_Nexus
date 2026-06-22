@@ -1,575 +1,131 @@
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>
-        HabitNexus
-    </title>
-
-    <!-- GOOGLE FONT -->
-
-    <link
-        rel="preconnect"
-        href="https://fonts.googleapis.com"
-    >
-
-    <link
-        rel="preconnect"
-        href="https://fonts.gstatic.com"
-        crossorigin
-    >
-
-    <link
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet"
-    >
-
-    <!-- CSS -->
-
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='css/landing.css') }}"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>HabitNexus | Student progress, made visible</title>
+    <meta name="description" content="Track habits, DSA progress, analytics, friends, and student challenges in one focused workspace.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/readability.css') }}">
 </head>
-
-<body>
-
-    <!-- BACKGROUND BLUR -->
-
-    <div class="blur-circle blur-1"></div>
-    <div class="blur-circle blur-2"></div>
-
-    <!-- NAVBAR -->
-
-    <nav class="navbar">
-
-        <div class="logo">
-            HabitNexus
+<body class="landing-page">
+    <header class="landing-nav">
+        <a href="#top" class="landing-brand"><span>HN</span><strong>HabitNexus</strong></a>
+        <button type="button" class="landing-menu-button" id="landingMenuButton" aria-expanded="false" aria-controls="landingMenu">Menu</button>
+        <nav id="landingMenu"><a href="#product">Product</a><a href="#how-it-works">How it works</a><a href="#updates">Updates</a><a href="#suggestions">Suggest</a></nav>
+        <div class="landing-nav-actions">
+            {% if current_user %}<a href="{{ url_for('dashboard') }}" class="landing-primary-action">Open workspace</a>{% else %}<a href="{{ url_for('login') }}">Sign in</a><a href="{{ url_for('register') }}" class="landing-primary-action">Create account</a>{% endif %}
         </div>
+    </header>
 
-        <div class="menu-toggle">
+    {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="landing-flashes">{% for category, message in messages %}<div class="{{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
 
-            ☰
-
-        </div>
-
-        <div class="mobile-menu">
-
-            <ul class="nav-links">
-
-                <li>
-                    <a href="#features">
-                        Features
-                    </a>
-                </li>
-
-                <li>
-                    <a href="#workflow">
-                        Workflow
-                    </a>
-                </li>
-
-                <li>
-                    <a href="#contact">
-                        Contact
-                    </a>
-                </li>
-
-                <li>
-                    <a href="/login">
-                        Dashboard
-                    </a>
-                </li>
-
-            </ul>
-
-        </div>
-
-        <div class="nav-buttons">
-
-            <a
-                href="/login"
-                class="login-btn"
-            >
-                Login
-            </a>
-
-            <a
-                href="/register"
-                class="start-btn"
-            >
-                Get Started
-            </a>
-
-        </div>
-
-    </nav>
-
-    <!-- HERO SECTION -->
-
-    <section class="hero">
-
-        <!-- LEFT -->
-
-        <div class="hero-left">
-
-            <span class="hero-badge">
-                🚀 Productivity + AI + Career Growth
-            </span>
-
-            <h1>
-                Build Better Habits.
-                <br>
-                Track Skills.
-                <br>
-                Grow Daily.
-            </h1>
-
-            <p>
-
-                HabitNexus helps students track habits,
-                DSA progress, analytics, productivity,
-                and career growth through one modern platform.
-
-            </p>
-
-            <div class="hero-buttons">
-
-                <a
-                    href="/register"
-                    class="primary-btn"
-                >
-                    Start Free
-                </a>
-
-                <a
-                    href="#"
-                    class="secondary-btn"
-                >
-                    Explore Features
-                </a>
-
+    <main id="top">
+        <section class="landing-hero">
+            <div class="landing-hero-copy">
+                <span class="landing-kicker">Built for engineering students</span>
+                <h1>One workspace for the work that compounds.</h1>
+                <p>HabitNexus connects daily routines, coding preparation, analytics, and peer accountability so students can see what they are building over time.</p>
+                <div class="landing-hero-actions">
+                    <a href="{{ url_for('dashboard') if current_user else url_for('register') }}" class="landing-primary-action">{{ 'Open your dashboard' if current_user else 'Start your workspace' }}</a>
+                    <a href="#product">Explore real features</a>
+                </div>
+                <div class="landing-trust"><span>No fabricated productivity scores</span><span>Private account details</span><span>Exportable progress</span></div>
             </div>
 
-            <!-- STATS -->
-
-            <div class="hero-stats">
-
-                <div class="stat-card">
-
-                    <h2>10K+</h2>
-
-                    <p>Tasks Tracked</p>
-
-                </div>
-
-                <div class="stat-card">
-
-                    <h2>2K+</h2>
-
-                    <p>Active Students</p>
-
-                </div>
-
-                <div class="stat-card">
-
-                    <h2>95%</h2>
-
-                    <p>Consistency Growth</p>
-
-                </div>
-
+            <div class="landing-product-preview" aria-label="HabitNexus product preview">
+                <header><div><span></span><span></span><span></span></div><small>HabitNexus workspace</small></header>
+                <div class="preview-welcome"><span>Today</span><h2>Make progress visible.</h2><div><i style="width: 68%"></i></div></div>
+                <div class="preview-metrics"><article><span>Habits</span><strong>{{ metrics.routines }}</strong></article><article><span>Completions</span><strong>{{ metrics.completions }}</strong></article><article><span>DSA solved</span><strong>{{ metrics.dsa_solved }}</strong></article></div>
+                <div class="preview-list"><div><i class="done"></i><span>Daily routines</span><small>Track by date</small></div><div><i></i><span>DSA roadmap</span><small>Plan by topic</small></div><div><i></i><span>Friends and challenges</span><small>Compare real data</small></div></div>
             </div>
-
-        </div>
-
-        <!-- RIGHT -->
-
-        <div class="hero-right">
-
-            <div class="dashboard-preview">
-
-                <div class="preview-card top-card">
-
-                    <h3>
-                        Daily Progress
-                    </h3>
-
-                    <div class="progress-bar">
-
-                        <div class="progress-fill"></div>
-
-                    </div>
-
-                    <p>
-                        82% Completed
-                    </p>
-
-                </div>
-
-                <div class="preview-grid">
-
-                    <div class="mini-card">
-                        🔥 14 Day Streak
-                    </div>
-
-                    <div class="mini-card">
-                        📈 Analytics
-                    </div>
-
-                    <div class="mini-card">
-                        👥 Friends Hub
-                    </div>
-
-                    <div class="mini-card">
-                        💻 DSA Tracker
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </section>
-
-    <!-- FEATURES -->
-
-        <section
-            class="features reveal"
-            id="features"
-        >
-
-            <div class="section-title">
-
-                <h2>
-                    Powerful Features
-                </h2>
-
-                <p>
-                    Everything needed for productivity,
-                    consistency, coding growth,
-                    and career development.
-                </p>
-
-            </div>
-
-            <div class="feature-grid">
-
-                <div class="feature-card">
-
-                    <h3>
-                        📊 Analytics Dashboard
-                    </h3>
-
-                    <p>
-                        Track daily productivity,
-                        consistency trends,
-                        completion percentage,
-                        and visual progress reports.
-                    </p>
-
-                </div>
-
-                <div class="feature-card">
-
-                    <h3>
-                        🔥 Streak Tracking
-                    </h3>
-
-                    <p>
-                        Maintain daily streaks,
-                        build discipline,
-                        and improve consistency
-                        with activity tracking.
-                    </p>
-
-                </div>
-
-                <div class="feature-card">
-
-                    <h3>
-                        👥 Social Productivity
-                    </h3>
-
-                    <p>
-                        Add friends,
-                        compare progress,
-                        and stay motivated
-                        through productivity competition.
-                    </p>
-
-                </div>
-
-                <div class="feature-card">
-
-                    <h3>
-                        💻 DSA Progress Tracker
-                    </h3>
-
-                    <p>
-                        Track coding questions,
-                        monitor topic mastery,
-                        and improve interview preparation.
-                    </p>
-
-                </div>
-
-                <div class="feature-card">
-
-                    <h3>
-                        🤖 AI Resume Analyzer
-                    </h3>
-
-                    <p>
-                        Analyze resumes,
-                        improve formatting,
-                        and receive smart career insights.
-                    </p>
-
-                </div>
-
-                <div class="feature-card">
-
-                    <h3>
-                        🎯 Goal Management
-                    </h3>
-
-                    <p>
-                        Set long-term goals,
-                        monitor progress,
-                        and build structured growth habits.
-                    </p>
-
-                </div>
-
-            </div>
-
         </section>
 
-            
-    <!-- WORKFLOW -->
+        <section class="landing-live-metrics landing-reveal" aria-label="Live platform metrics">
+            <article><strong data-count="{{ metrics.students }}">{{ metrics.students }}</strong><span>Active student accounts</span></article>
+            <article><strong data-count="{{ metrics.routines }}">{{ metrics.routines }}</strong><span>Routines created</span></article>
+            <article><strong data-count="{{ metrics.completions }}">{{ metrics.completions }}</strong><span>Habit completions logged</span></article>
+            <article><strong data-count="{{ metrics.dsa_solved }}">{{ metrics.dsa_solved }}</strong><span>Latest DSA solves tracked</span></article>
+            <article><strong data-count="{{ metrics.challenges }}">{{ metrics.challenges }}</strong><span>Student challenges created</span></article>
+        </section>
 
-    <section
-        class="workflow reveal"
-        id="workflow"
-    >
-
-        <div class="section-title">
-
-            <h2>
-                How HabitNexus Works
-            </h2>
-
-            <p>
-                A complete ecosystem for student growth.
-            </p>
-
-        </div>
-
-        <div class="workflow-container">
-
-            <div class="workflow-step">
-
-                <span>1</span>
-
-                <h3>
-                    Create Habits
-                </h3>
-
-                <p>
-                    Add routines,
-                    goals,
-                    and productivity tasks.
-                </p>
-
+        <section class="landing-section landing-reveal" id="product">
+            <div class="landing-section-heading"><span class="landing-kicker">What is actually in the product</span><h2>A focused system, not a feature wishlist.</h2><p>Every capability below is connected to working routes and stored progress in HabitNexus.</p></div>
+            <div class="landing-feature-grid">
+                <article><span>01</span><h3>Daily habit workspace</h3><p>Create routines, complete them by day, build full-day streaks, and inspect historical details in the calendar.</p></article>
+                <article><span>02</span><h3>Useful analytics</h3><p>Review 14-day completion rates, consistency, strongest habits, attention areas, and DSA growth.</p></article>
+                <article><span>03</span><h3>DSA preparation</h3><p>Sync public LeetCode statistics, track topic targets, manage a backlog, and see daily problem growth.</p></article>
+                <article><span>04</span><h3>Student network</h3><p>Connect with other students, view public progress profiles, compare real metrics, and create challenges.</p></article>
+                <article><span>05</span><h3>Weekly leaderboard</h3><p>See a transparent score based on habit completion, new DSA solves, and full-day streaks.</p></article>
+                <article><span>06</span><h3>Portable progress</h3><p>Export habit and DSA history as CSV instead of locking learning data inside the application.</p></article>
             </div>
+        </section>
 
-            <div class="workflow-step">
+        <section class="landing-section landing-workflow landing-reveal" id="how-it-works">
+            <div class="landing-section-heading"><span class="landing-kicker">A simple loop</span><h2>Plan, record, review, improve.</h2></div>
+            <div class="landing-workflow-grid"><article><strong>1</strong><div><h3>Set a realistic system</h3><p>Add routines and DSA topic targets that fit your current semester.</p></div></article><article><strong>2</strong><div><h3>Record honest progress</h3><p>Complete daily actions and sync coding results without invented scores.</p></div></article><article><strong>3</strong><div><h3>Review patterns</h3><p>Use calendar and analytics views to find what is reliable and what needs reducing.</p></div></article><article><strong>4</strong><div><h3>Grow with accountability</h3><p>Share a public overview, connect with friends, and compare progress transparently.</p></div></article></div>
+        </section>
 
-                <span>2</span>
+        <section class="landing-section landing-reveal" id="updates">
+            <div class="landing-section-heading"><span class="landing-kicker">From the developer</span><h2>Product information and updates.</h2><p>This section is published directly from the protected developer console.</p></div>
+            {% if landing_updates %}
+            <div class="landing-update-grid">{% for item in landing_updates %}<article><span>Product update</span><h3>{{ item.title }}</h3><p>{{ item.body }}</p>{% if item.link_url and item.link_label %}<a href="{{ item.link_url }}">{{ item.link_label }}</a>{% endif %}</article>{% endfor %}</div>
+            {% else %}
+            <div class="landing-update-empty"><strong>No developer updates published yet.</strong><span>New product information will appear here when it is ready.</span></div>
+            {% endif %}
+        </section>
 
-                <h3>
-                    Track Progress
-                </h3>
+        <section class="landing-suggestion landing-reveal" id="suggestions">
+            <div><span class="landing-kicker">Help shape HabitNexus</span><h2>What would make this more useful for students?</h2><p>Send a focused suggestion. It will appear in the protected developer console for review.</p></div>
+            <form method="POST" action="{{ url_for('submit_suggestion') }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <label><span>Name</span><input type="text" name="name" maxlength="80" value="{{ current_user.username if current_user else '' }}" required></label>
+                <label><span>Email (optional)</span><input type="email" name="email" maxlength="150" value="{{ current_user.email if current_user else '' }}"></label>
+                <label class="full"><span>Suggestion</span><textarea name="message" minlength="10" maxlength="1200" placeholder="Describe the student problem and the improvement you have in mind." required></textarea></label>
+                <button type="submit">Send suggestion</button>
+            </form>
+        </section>
+    </main>
 
-                <p>
-                    Visualize consistency
-                    using analytics,
-                    heatmaps,
-                    and streaks.
-                </p>
-
-            </div>
-
-            <div class="workflow-step">
-
-                <span>3</span>
-
-                <h3>
-                    Improve Skills
-                </h3>
-
-                <p>
-                    Track DSA progress,
-                    coding practice,
-                    and interview preparation.
-                </p>
-
-            </div>
-
-            <div class="workflow-step">
-
-                <span>4</span>
-
-                <h3>
-                    Connect & Grow
-                </h3>
-
-                <p>
-                    Compare progress,
-                    add friends,
-                    and grow with accountability.
-                </p>
-
-            </div>
-
-        </div>
-
-    </section>
-
-    <!-- CONTACT -->
-
-    <section
-        class="contact reveal"
-        id="contact"
-    >
-
-        <div class="contact-card">
-
-            <h2>
-                Get In Touch
-            </h2>
-
-            <p>
-                Want to collaborate,
-                contribute,
-                or connect?
-            </p>
-
-            <div class="contact-links">
-
-                <a href="#">
-                    📧 Email
-                </a>
-
-                <a href="#">
-                    💻 GitHub
-                </a>
-
-                <a href="#">
-                    🔗 LinkedIn
-                </a>
-
-            </div>
-
-        </div>
-
-    </section>
-
-    <!-- FOOTER -->
-
-    <footer class="footer">
-
-        <h2>
-            HabitNexus
-        </h2>
-
-        <p>
-            Track Habits. Build Skills. Grow Daily.
-        </p>
-
-        <div class="footer-links">
-
-            <a href="#">
-                Features
-            </a>
-
-            <a href="#">
-                Dashboard
-            </a>
-
-            <a href="#">
-                Contact
-            </a>
-
-            <a href="#">
-                GitHub
-            </a>
-
-        </div>
-
+    <footer class="landing-footer">
+        <div><a href="#top" class="landing-brand"><span>HN</span><strong>HabitNexus</strong></a><p>Real progress tools for engineering students.</p></div>
+        <nav><a href="#product">Product</a><a href="#updates">Updates</a><a href="#suggestions">Suggestions</a><a href="{{ url_for('login') }}">Sign in</a></nav>
+        <p>&copy; {{ current_year }} HabitNexus. Built from student needs and real usage.</p>
     </footer>
 
-    <!-- SCROLL REVEAL -->
-<script>
+    <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const menuButton = document.getElementById("landingMenuButton");
+        const menu = document.getElementById("landingMenu");
+        menuButton.addEventListener("click", () => {
+            const open = menu.classList.toggle("open");
+            menuButton.setAttribute("aria-expanded", String(open));
+        });
 
-const reveals = document.querySelectorAll(".reveal");
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add("visible"); observer.unobserve(entry.target); } });
+        }, { threshold: .12 });
+        document.querySelectorAll(".landing-reveal").forEach(element => observer.observe(element));
 
-window.addEventListener(
-    "scroll",
-    () => {
-
-        reveals.forEach(
-            reveal => {
-
-                const windowHeight =
-                    window.innerHeight;
-
-                const revealTop =
-                    reveal.getBoundingClientRect().top;
-
-                const revealPoint = 120;
-
-                if(revealTop < windowHeight - revealPoint){
-
-                    reveal.classList.add("active");
+        const metricObserver = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
+                const target = Number(entry.target.dataset.count || 0);
+                const start = performance.now();
+                const duration = 700;
+                function tick(now) {
+                    const progress = Math.min((now - start) / duration, 1);
+                    entry.target.textContent = Math.round(target * (1 - Math.pow(1 - progress, 3))).toLocaleString();
+                    if (progress < 1) requestAnimationFrame(tick);
                 }
-            }
-        );
-    }
-);
-
-</script>
-
-<script>
-
-const menuToggle =
-    document.querySelector(".menu-toggle");
-
-const mobileMenu =
-    document.querySelector(".mobile-menu");
-
-menuToggle.addEventListener(
-    "click",
-    () => {
-
-        mobileMenu.classList.toggle("active");
-    }
-);
-
-</script>
-
+                requestAnimationFrame(tick);
+                metricObserver.unobserve(entry.target);
+            });
+        }, { threshold: .5 });
+        document.querySelectorAll("[data-count]").forEach(element => metricObserver.observe(element));
+    });
+    </script>
 </body>
-
 </html>

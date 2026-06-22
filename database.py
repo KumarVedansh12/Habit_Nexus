@@ -1,4 +1,5 @@
 import sqlite3
+import secrets
 
 def get_db_connection():
     conn = sqlite3.connect("database.db")
@@ -36,7 +37,17 @@ def init_db():
 
         linkedin TEXT,
 
-        leetcode TEXT
+        leetcode TEXT,
+
+        is_developer INTEGER DEFAULT 0,
+
+        is_active INTEGER DEFAULT 1,
+
+        created_at TEXT,
+
+        last_login_at TEXT,
+
+        public_id TEXT UNIQUE
 
     )
     """)
@@ -214,9 +225,78 @@ def init_db():
     )
     """)
 
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS landing_content (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        link_label TEXT,
+        link_url TEXT,
+        is_published INTEGER DEFAULT 1,
+        display_order INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS suggestions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        name TEXT NOT NULL,
+        email TEXT,
+        message TEXT NOT NULL,
+        status TEXT DEFAULT 'new',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    user_columns = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(users)").fetchall()
+    }
+    user_migrations = {
+        "is_developer": "INTEGER DEFAULT 0",
+        "is_active": "INTEGER DEFAULT 1",
+        "created_at": "TEXT",
+        "last_login_at": "TEXT",
+        "public_id": "TEXT"
+    }
+    for column, definition in user_migrations.items():
+        if column not in user_columns:
+            conn.execute(
+                f"ALTER TABLE users ADD COLUMN {column} {definition}"
+            )
+
+    conn.execute(
+        "UPDATE users SET created_at=COALESCE(created_at, CURRENT_TIMESTAMP)"
+    )
+
+    existing_public_ids = {
+        row["public_id"]
+        for row in conn.execute(
+            "SELECT public_id FROM users WHERE public_id IS NOT NULL"
+        ).fetchall()
+    }
+    users_without_public_id = conn.execute(
+        "SELECT id FROM users WHERE public_id IS NULL OR public_id=''"
+    ).fetchall()
+    for user in users_without_public_id:
+        public_id = None
+        while not public_id or public_id in existing_public_ids:
+            public_id = f"HN-{secrets.token_hex(4).upper()}"
+        conn.execute(
+            "UPDATE users SET public_id=? WHERE id=?",
+            (public_id, user["id"])
+        )
+        existing_public_ids.add(public_id)
+
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_public_id ON users(public_id)"
+    )
+
 
 
     conn.commit()
 
     conn.close()
-

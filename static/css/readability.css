@@ -1,0 +1,308 @@
+/* Final typography layer: loaded after every page stylesheet. */
+html { font-size: 16px; }
+body { font-size: 16px; line-height: 1.5; }
+button,
+input,
+select,
+textarea { font-size: 14px; }
+
+/* Application shell */
+.sidebar-brand strong { font-size: 16px; }
+.sidebar-brand small { font-size: 11px; }
+.sidebar-label { font-size: 11px; }
+.sidebar-group a { font-size: 14px; }
+.sidebar-account strong { font-size: 13px; }
+.sidebar-account span,
+.sidebar-account button { font-size: 11px; }
+.navbar-leading > div > span { font-size: 11px; }
+.navbar-leading h2 { font-size: 18px; }
+.navbar-user strong { font-size: 13px; }
+.navbar-user span { font-size: 11px; }
+.flash-message { font-size: 13px; }
+.app-footer > div > a strong { font-size: 13px; }
+.app-footer > div > p,
+.app-footer > p,
+.app-footer nav a { font-size: 11px; }
+
+/* Shared page labels and supporting text */
+:is(
+    .dashboard-kicker,
+    .dsa-kicker,
+    .analytics-kicker,
+    .network-eyebrow,
+    .public-profile-eyebrow,
+    .challenge-section-heading span,
+    .account-page-header > div > span,
+    .account-form-card header > span,
+    .developer-header > div > span,
+    .developer-panel header span,
+    .developer-panel-header > div > span
+) { font-size: 12px; }
+
+/* Dashboard */
+.dashboard-header p { font-size: 16px; }
+.dashboard-header-link { font-size: 13px; }
+.dashboard-summary-grid span { font-size: 14px; }
+.dashboard-summary-grid small { font-size: 12px; }
+.dashboard-focus p { font-size: 15px; }
+.dashboard-progress-ring span { font-size: 12px; }
+.dashboard-panel-heading small { font-size: 12px; }
+.dashboard-add-form input,
+.dashboard-add-form button { font-size: 14px; }
+.dashboard-routine strong { font-size: 15px; }
+.dashboard-routine span { font-size: 12px; }
+.dashboard-delete { font-size: 12px; }
+.dashboard-network-stats span { font-size: 12px; }
+.dashboard-link-list a { font-size: 13px; }
+.dashboard-empty strong { font-size: 15px; }
+.dashboard-empty span { font-size: 13px; }
+
+/* DSA workspace */
+.dsa-workspace-header p { font-size: 16px; }
+.dsa-button,
+.dsa-inline-button { font-size: 14px; }
+.dsa-summary-grid span { font-size: 14px; }
+.dsa-summary-grid small { font-size: 12px; }
+.dsa-focus-copy p { font-size: 15px; }
+.dsa-focus-copy a { font-size: 14px; }
+.dsa-focus-meter span { font-size: 12px; }
+.dsa-panel-heading > small { font-size: 12px; }
+.dsa-add-form label span,
+.dsa-update-form label span { font-size: 11px; }
+.dsa-add-form input,
+.dsa-update-form input,
+.dsa-backlog-form input,
+.dsa-sync-form input { font-size: 14px; }
+.dsa-topic-overview h3 { font-size: 16px; }
+.dsa-topic-overview span { font-size: 12px; }
+.dsa-delete-button { font-size: 12px; }
+.dsa-skill-list span,
+.dsa-backlog-list span { font-size: 14px; }
+.dsa-skill-list strong,
+.dsa-guidance { font-size: 12px; }
+.dsa-backlog-list button { font-size: 11px; }
+.dsa-empty-state strong { font-size: 15px; }
+.dsa-empty-state span { font-size: 12px; }
+.dsa-sync-panel p { font-size: 15px; }
+
+/* Analytics */
+.analytics-header p { font-size: 16px; }
+.analytics-link-button { font-size: 13px; }
+.analytics-summary-grid span { font-size: 14px; }
+.analytics-summary-grid small { font-size: 12px; }
+.analytics-coach p { font-size: 15px; }
+.analytics-coach-score span { font-size: 12px; }
+.analytics-panel-heading small { font-size: 12px; }
+.analytics-insight-grid span { font-size: 11px; }
+.analytics-insight-grid strong { font-size: 19px; }
+.analytics-insight-grid p { font-size: 13px; }
+.habit-performance-copy strong { font-size: 15px; }
+.habit-performance-copy span { font-size: 12px; }
+.habit-performance-copy b { font-size: 14px; }
+.analytics-empty strong { font-size: 16px; }
+.analytics-empty span { font-size: 13px; }
+
+/* Calendar */
+.habit-calendar-title > div > span,
+.habit-calendar-nav span { font-size: 12px; }
+.habit-calendar-title p { font-size: 16px; }
+.habit-calendar-title > a { font-size: 13px; }
+.habit-calendar-summary span { font-size: 13px; }
+.habit-calendar-nav a { font-size: 13px; }
+.habit-calendar-legend span,
+.habit-calendar-weekday { font-size: 11px; }
+.habit-calendar-number { font-size: 16px; }
+.habit-calendar-count { font-size: 12px; }
+.habit-day-dialog header span { font-size: 11px; }
+.habit-day-dialog header button { font-size: 12px; }
+.habit-day-summary,
+.habit-day-empty { font-size: 13px; }
+.habit-day-task strong { font-size: 14px; }
+.habit-day-task span { font-size: 12px; }
+
+/* Friends, profiles, and challenges */
+.network-hero p { font-size: 16px; }
+.network-primary-link,
+.network-button { font-size: 14px; }
+.network-summary span { font-size: 13px; }
+.network-count { font-size: 12px; }
+.network-person strong { font-size: 15px; }
+.network-person span { font-size: 13px; }
+.network-streak { font-size: 12px; }
+.network-metric-row span { font-size: 12px; }
+.network-text-button { font-size: 12px; }
+.network-discover-card > p { font-size: 14px; }
+.network-discover-metrics span { font-size: 12px; }
+.network-activity-list strong { font-size: 14px; }
+.network-activity-list p { font-size: 13px; }
+.network-activity-list time { font-size: 11px; }
+.network-empty h3 { font-size: 18px; }
+.network-empty p { font-size: 14px; }
+.public-profile-back { font-size: 14px; }
+.public-profile-member-badge,
+.public-profile-count { font-size: 11px; }
+.public-profile-academic,
+.public-profile-bio { font-size: 15px; }
+.public-profile-links a { font-size: 14px; }
+.public-profile-button { font-size: 14px; }
+.public-profile-stat-card span { font-size: 13px; }
+.public-profile-quiet { font-size: 12px; }
+.public-profile-progress-copy span,
+.public-profile-progress-copy strong { font-size: 14px; }
+.public-profile-progress-item small,
+.public-profile-topic span,
+.public-profile-activity-item time { font-size: 12px; }
+.public-profile-topic strong,
+.public-profile-activity-item p { font-size: 14px; }
+.public-profile-empty { font-size: 13px; }
+.challenge-back { font-size: 14px; }
+.challenge-heading p { font-size: 15px; }
+.challenge-status { font-size: 11px; }
+.challenge-meta span { font-size: 13px; }
+.challenge-meta small { font-size: 11px; }
+.challenge-primary-button { font-size: 14px; }
+.challenge-person span { font-size: 11px; }
+.challenge-person p { font-size: 12px; }
+.challenge-leader { font-size: 11px; }
+.challenge-total span { font-size: 11px; }
+.challenge-stat-grid span { font-size: 11px; }
+.challenge-profile-link { font-size: 13px; }
+.challenge-formula { font-size: 12px; }
+.challenge-insights span { font-size: 11px; }
+.challenge-insights p { font-size: 13px; }
+.challenge-activity-list strong,
+.challenge-activity-list p { font-size: 13px; }
+.challenge-activity-list time { font-size: 11px; }
+.challenge-empty { font-size: 13px; }
+
+/* Leaderboard */
+.leaderboard-header > div > span,
+.leaderboard-method span,
+.leaderboard-list > header span { font-size: 12px; }
+.leaderboard-header p { font-size: 15px; }
+.leaderboard-header > a { font-size: 13px; }
+.leaderboard-personal span { font-size: 13px; }
+.leaderboard-personal small { font-size: 11px; }
+.leaderboard-method p { font-size: 13px; }
+.podium-rank { font-size: 12px; }
+.podium-card h2 { font-size: 18px; }
+.podium-card h2 small { font-size: 9px; }
+.podium-card > p { font-size: 12px; }
+.podium-card > strong span { font-size: 11px; }
+.podium-metrics span { font-size: 11px; }
+.podium-card > a { font-size: 12px; }
+.leaderboard-rank { font-size: 14px; }
+.leaderboard-person strong { font-size: 14px; }
+.leaderboard-person span { font-size: 11px; }
+.leaderboard-row-metrics span { font-size: 11px; }
+.leaderboard-empty span { font-size: 12px; }
+
+/* Authentication, profile, and settings */
+.auth-kicker { font-size: 11px; }
+.auth-story p { font-size: 16px; }
+.auth-story li { font-size: 12px; }
+.auth-panel > p { font-size: 13px; }
+.auth-alert { font-size: 12px; }
+.account-form label > span,
+.account-form-card label > span { font-size: 12px; }
+.account-form input,
+.account-form-card input,
+.account-form-card textarea { font-size: 14px; }
+.account-form > button,
+.account-form-card > button,
+.account-form-actions button { font-size: 14px; }
+.auth-switch { font-size: 12px; }
+.account-page-header p { font-size: 15px; }
+.account-page-header > a { font-size: 13px; }
+.profile-avatar-editor label { font-size: 10px; }
+.profile-editor-hero > div:nth-child(2) > span { font-size: 12px; }
+.profile-editor-hero p { font-size: 13px; }
+.profile-completion > span { font-size: 11px; }
+.account-form-card header p { font-size: 12px; }
+.account-form-card label small { font-size: 10px; }
+.account-form-actions p { font-size: 12px; }
+.settings-summary > p { font-size: 11px; }
+.settings-summary > div { font-size: 11px; }
+.settings-summary > a { font-size: 12px; }
+
+/* Developer console */
+.developer-header > div > span,
+.developer-panel header span,
+.developer-panel-header > div > span { font-size: 12px; }
+.developer-header p { font-size: 14px; }
+.developer-header > a { font-size: 12px; }
+.developer-section-nav a { font-size: 11px; }
+.developer-metrics span { font-size: 12px; }
+.developer-metrics small { font-size: 10px; }
+.developer-panel header p,
+.developer-panel-header p { font-size: 12px; }
+.developer-panel-header input { font-size: 13px; }
+.developer-user-table th { font-size: 11px; }
+.developer-user-table td { font-size: 12px; }
+.developer-user strong { font-size: 13px; }
+.developer-user span { font-size: 10px; }
+.developer-user b { font-size: 9px; }
+.developer-status { font-size: 10px; }
+.developer-row-action,
+.developer-toggle-button,
+.developer-protected { font-size: 10px; }
+.suggestion-meta strong { font-size: 13px; }
+.suggestion-meta div > span { font-size: 10px; }
+.developer-suggestion-list article > p { font-size: 13px; }
+.developer-suggestion-list select,
+.developer-suggestion-list button { font-size: 11px; }
+.developer-content-form label span,
+.developer-content-list label span { font-size: 11px; }
+.developer-content-form input,
+.developer-content-form textarea,
+.developer-content-list input,
+.developer-content-list textarea { font-size: 13px; }
+.developer-primary-button,
+.developer-content-list form > button { font-size: 12px; }
+.developer-content-list summary strong { font-size: 13px; }
+.developer-content-list summary span,
+.developer-content-list summary b { font-size: 10px; }
+.developer-empty { font-size: 12px; }
+
+/* Public landing page */
+.landing-brand strong { font-size: 16px; }
+.landing-nav > nav a,
+.landing-nav-actions > a { font-size: 13px; }
+.landing-primary-action { font-size: 13px; }
+.landing-menu-button { font-size: 12px; }
+.landing-flashes > div { font-size: 13px; }
+.landing-kicker { font-size: 11px; }
+.landing-hero-copy > p { font-size: 18px; }
+.landing-hero-actions > a:not(.landing-primary-action) { font-size: 13px; }
+.landing-trust span { font-size: 11px; }
+.landing-product-preview > header small { font-size: 10px; }
+.preview-welcome > span { font-size: 10px; }
+.preview-metrics span { font-size: 10px; }
+.preview-list span { font-size: 11px; }
+.preview-list small { font-size: 9px; }
+.landing-live-metrics span { font-size: 12px; }
+.landing-section-heading p { font-size: 15px; }
+.landing-feature-grid article > span { font-size: 11px; }
+.landing-feature-grid h3 { font-size: 19px; }
+.landing-feature-grid p { font-size: 14px; }
+.landing-workflow-grid article > strong { font-size: 12px; }
+.landing-workflow-grid h3 { font-size: 16px; }
+.landing-workflow-grid p { font-size: 13px; }
+.landing-update-grid article > span { font-size: 10px; }
+.landing-update-grid h3 { font-size: 18px; }
+.landing-update-grid p { font-size: 14px; }
+.landing-update-grid a { font-size: 12px; }
+.landing-update-empty span { font-size: 12px; }
+.landing-suggestion > div > p { font-size: 14px; }
+.landing-suggestion label span { font-size: 11px; }
+.landing-suggestion input,
+.landing-suggestion textarea,
+.landing-suggestion button { font-size: 13px; }
+.landing-footer > div > p,
+.landing-footer > p { font-size: 11px; }
+.landing-footer nav a { font-size: 12px; }
+
+@media (max-width: 620px) {
+    body { font-size: 15px; }
+    .landing-hero-copy > p { font-size: 16px; }
+}

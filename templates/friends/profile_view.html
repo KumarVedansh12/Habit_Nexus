@@ -1,0 +1,179 @@
+{% extends "layout/base.html" %}
+
+{% block content %}
+<main class="public-profile-page">
+    <a href="{{ url_for('friends_hub') }}" class="public-profile-back">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        Back to friends
+    </a>
+
+    <section class="public-profile-hero">
+        <div class="public-profile-cover"></div>
+
+        <div class="public-profile-identity">
+            <div class="public-profile-avatar-wrap">
+                <img
+                    src="{{ user.profile_image or url_for('static', filename='images/default-avatar.svg') }}"
+                    alt="{{ user.username }} profile picture"
+                    class="public-profile-avatar"
+                >
+                <span class="public-profile-status" title="HabitNexus member"></span>
+            </div>
+
+            <div class="public-profile-heading">
+                <div class="public-profile-name-row">
+                    <h1>{{ user.username }}</h1>
+                    <span class="public-profile-member-badge">Student builder</span>
+                </div>
+                <p class="public-profile-academic">
+                    {% if user.branch %}{{ user.branch }}{% else %}Engineering student{% endif %}
+                    {% if user.year %}<span></span>{{ user.year }}{% endif %}
+                    {% if user.college %}<span></span>{{ user.college }}{% endif %}
+                </p>
+                <p class="public-profile-bio">
+                    {{ user.bio or "Building better habits and sharpening problem-solving skills, one day at a time." }}
+                </p>
+
+                <div class="public-profile-links">
+                    {% if social_links.github %}
+                    <a href="{{ social_links.github }}" target="_blank" rel="noopener noreferrer">GitHub</a>
+                    {% endif %}
+                    {% if social_links.linkedin %}
+                    <a href="{{ social_links.linkedin }}" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+                    {% endif %}
+                    {% if social_links.leetcode %}
+                    <a href="{{ social_links.leetcode }}" target="_blank" rel="noopener noreferrer">LeetCode</a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="public-profile-actions">
+                {% if is_own_profile %}
+                <a href="{{ url_for('profile') }}" class="public-profile-button public-profile-button-primary">Edit profile</a>
+                {% elif is_friend %}
+                <form method="POST" action="{{ url_for('challenge_friend', friend_id=user.id) }}">
+                    <button type="submit" class="public-profile-button public-profile-button-primary">Challenge user</button>
+                </form>
+                {% else %}
+                <a href="{{ url_for('friends_hub') }}#discover" class="public-profile-button public-profile-button-primary">Find connections</a>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <section class="public-profile-stat-grid" aria-label="Profile statistics">
+        <article class="public-profile-stat-card">
+            <div class="public-profile-stat-icon icon-blue">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div><strong>{{ total_friends }}</strong><span>Friends</span></div>
+        </article>
+        <article class="public-profile-stat-card">
+            <div class="public-profile-stat-icon icon-orange">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22c4-2 7-5.5 7-10a7 7 0 0 0-14 0c0 4.5 3 8 7 10Z"/><path d="M9.5 13.5 12 8l2.5 5.5"/></svg>
+            </div>
+            <div><strong>{{ streak }}</strong><span>Day streak</span></div>
+        </article>
+        <article class="public-profile-stat-card">
+            <div class="public-profile-stat-icon icon-violet">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM7 6H4v2a4 4 0 0 0 4 4M17 6h3v2a4 4 0 0 1-4 4"/></svg>
+            </div>
+            <div><strong>{{ challenge_stats.wins }}</strong><span>Challenge wins</span></div>
+        </article>
+        <article class="public-profile-stat-card">
+            <div class="public-profile-stat-icon icon-green">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </div>
+            <div><strong>{{ routine_stats.completed }}/{{ routine_stats.total }}</strong><span>Habits completed</span></div>
+        </article>
+    </section>
+
+    <div class="public-profile-content-grid">
+        <section class="public-profile-panel public-profile-progress-panel">
+            <div class="public-profile-section-heading">
+                <div>
+                    <span class="public-profile-eyebrow">Performance</span>
+                    <h2>Progress overview</h2>
+                </div>
+                <span class="public-profile-quiet">Current snapshot</span>
+            </div>
+
+            <div class="public-profile-progress-list">
+                <div class="public-profile-progress-item">
+                    <div class="public-profile-progress-copy">
+                        <span>Daily habits</span><strong>{{ routine_progress }}%</strong>
+                    </div>
+                    <div class="public-profile-progress-track"><span style="width: {{ routine_progress }}%"></span></div>
+                    <small>{{ routine_stats.completed }} of {{ routine_stats.total }} habits completed</small>
+                </div>
+                <div class="public-profile-progress-item dsa-progress">
+                    <div class="public-profile-progress-copy">
+                        <span>DSA roadmap</span><strong>{{ dsa_progress }}%</strong>
+                    </div>
+                    <div class="public-profile-progress-track"><span style="width: {{ dsa_progress }}%"></span></div>
+                    <small>{{ dsa_stats.completed }} of {{ dsa_stats.target }} target problems solved</small>
+                </div>
+                <div class="public-profile-progress-item challenge-progress">
+                    <div class="public-profile-progress-copy">
+                        <span>Challenges joined</span><strong>{{ challenge_stats.total }}</strong>
+                    </div>
+                    <small>{{ challenge_stats.wins }} recorded win{% if challenge_stats.wins != 1 %}s{% endif %}</small>
+                </div>
+            </div>
+        </section>
+
+        <section class="public-profile-panel">
+            <div class="public-profile-section-heading">
+                <div>
+                    <span class="public-profile-eyebrow">Learning</span>
+                    <h2>DSA focus</h2>
+                </div>
+                <span class="public-profile-count">{{ dsa_stats.topics }} topics</span>
+            </div>
+
+            {% if latest_topics %}
+            <div class="public-profile-topic-list">
+                {% for topic in latest_topics %}
+                <div class="public-profile-topic">
+                    <div>
+                        <strong>{{ topic.topic_name }}</strong>
+                        <span>{{ topic.completed }} / {{ topic.target }} solved</span>
+                    </div>
+                    <span class="public-profile-topic-pill">
+                        {% if topic.target %}{{ [((topic.completed / topic.target) * 100)|round|int, 100]|min }}%{% else %}0%{% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="public-profile-empty">No public DSA topics added yet.</div>
+            {% endif %}
+        </section>
+
+        <section class="public-profile-panel public-profile-activity-panel">
+            <div class="public-profile-section-heading">
+                <div>
+                    <span class="public-profile-eyebrow">Timeline</span>
+                    <h2>Recent activity</h2>
+                </div>
+            </div>
+
+            {% if activities %}
+            <div class="public-profile-activity-list">
+                {% for activity in activities %}
+                <article class="public-profile-activity-item">
+                    <span class="public-profile-activity-dot"></span>
+                    <div>
+                        <p>{{ activity.activity }}</p>
+                        <time>{{ activity.created_at }}</time>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="public-profile-empty">No recent activity to show.</div>
+            {% endif %}
+        </section>
+    </div>
+</main>
+{% endblock %}

@@ -1,160 +1,119 @@
 {% extends "layout/base.html" %}
 
 {% block content %}
+<main class="habit-calendar-page">
+    <header class="habit-calendar-title">
+        <div><span>Consistency history</span><h1>Habit calendar</h1><p>Select a day to review every routine, including items you did not complete.</p></div>
+        <a href="{{ url_for('analytics') }}">Open analytics</a>
+    </header>
 
-<h1 class="page-title">
-    Calendar 📅
-</h1>
+    <section class="habit-calendar-summary" aria-label="Month summary">
+        <article><span>Completions</span><strong>{{ month_completions }}</strong></article>
+        <article><span>Active days</span><strong>{{ active_days }}</strong></article>
+        <article><span>Perfect days</span><strong>{{ perfect_days }}</strong></article>
+        <article><span>Active routines</span><strong>{{ routine_count }}</strong></article>
+    </section>
 
-<div class="calendar-container">
+    <section class="habit-calendar-shell">
+        <header class="habit-calendar-nav">
+            <a href="{{ url_for('calendar', year=previous_year, month=previous_month) }}" aria-label="Previous month">Previous</a>
+            <div><span>Monthly review</span><h2>{{ month_name }} {{ year }}</h2></div>
+            <a href="{{ url_for('calendar', year=next_year, month=next_month) }}" aria-label="Next month">Next</a>
+        </header>
 
-    <div class="calendar-header">
+        <div class="habit-calendar-legend"><span><i class="level-low"></i>Started</span><span><i class="level-mid"></i>Progress</span><span><i class="level-full"></i>Complete</span></div>
 
-        <h2>
-            {{ month_name }} {{ year }}
-        </h2>
-
-    </div>
-
-    <div id="dayModal" class="modal">
-
-    <div class="modal-content">
-
-        <h2 id="modalDate"></h2>
-
-        <div id="modalTasks"></div>
-
-        <button onclick="closeModal()">
-            Close
-        </button>
-
-    </div>
-
-</div>
-
-    <div class="calendar-grid">
-
-        <div class="day-name">Mon</div>
-        <div class="day-name">Tue</div>
-        <div class="day-name">Wed</div>
-        <div class="day-name">Thu</div>
-        <div class="day-name">Fri</div>
-        <div class="day-name">Sat</div>
-        <div class="day-name">Sun</div>
-
-        {% for week in cal %}
-
-            {% for day in week %}
-
-            {% if day == 0 %}
-
-                <div class="calendar-day empty"></div>
-
-                {% else %}
-
-                {% set date_key =
-                    year|string + "-" +
-                    "%02d"|format(month) + "-" +
-                    "%02d"|format(day)
-                %}
-
-                <div
-                    class="calendar-day"
-                    data-date="{{ date_key }}"
-                >
-
-                    <span class="day-number">
-
-                        {{ day }}
-
-                    </span>
-
-                    {% if date_key in activity %}
-
-                        <span class="activity-badge">
-
-                            {{ activity[date_key] }}
-
-                        </span>
-
+        <div class="habit-calendar-grid">
+            {% for day_name in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}<div class="habit-calendar-weekday">{{ day_name }}</div>{% endfor %}
+            {% for week in cal %}
+                {% for day in week %}
+                    {% if day == 0 %}
+                    <div class="habit-calendar-empty"></div>
+                    {% else %}
+                    {% set date_key = year|string + '-' + '%02d'|format(month) + '-' + '%02d'|format(day) %}
+                    {% set day_activity = activity.get(date_key) %}
+                    {% set rate = day_activity.rate if day_activity else 0 %}
+                    <button
+                        type="button"
+                        class="habit-calendar-day {% if date_key == today_key %}is-today{% endif %} {% if rate >= 100 %}level-full{% elif rate >= 50 %}level-mid{% elif rate > 0 %}level-low{% endif %}"
+                        data-date="{{ date_key }}"
+                        aria-label="Review {{ date_key }}"
+                    >
+                        <span class="habit-calendar-number">{{ day }}</span>
+                        {% if day_activity %}<span class="habit-calendar-count">{{ day_activity.completed }}/{{ routine_count }}</span>{% endif %}
+                        <span class="habit-calendar-bar"><i style="width: {{ rate }}%"></i></span>
+                    </button>
                     {% endif %}
-
-                </div>
-
-                {% endif %}
-
+                {% endfor %}
             {% endfor %}
+        </div>
+    </section>
 
-        {% endfor %}
-
+    <div id="dayModal" class="habit-day-modal" hidden>
+        <div class="habit-day-dialog" role="dialog" aria-modal="true" aria-labelledby="modalDate">
+            <header><div><span>Daily review</span><h2 id="modalDate"></h2></div><button type="button" id="modalClose" aria-label="Close day details">Close</button></header>
+            <div id="modalSummary" class="habit-day-summary"></div>
+            <div id="modalTasks" class="habit-day-tasks"></div>
+        </div>
     </div>
+</main>
 
-</div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const modal = document.getElementById("dayModal");
+    const modalDate = document.getElementById("modalDate");
+    const modalTasks = document.getElementById("modalTasks");
+    const modalSummary = document.getElementById("modalSummary");
+    const closeButton = document.getElementById("modalClose");
 
-<script> 
+    function closeModal() {
+        modal.hidden = true;
+        document.body.classList.remove("modal-open");
+    }
 
-document
-.querySelectorAll(".calendar-day")
-.forEach(day => {
+    document.querySelectorAll(".habit-calendar-day").forEach(function (dayButton) {
+        dayButton.addEventListener("click", async function () {
+            const selectedDate = dayButton.dataset.date;
+            modalDate.textContent = selectedDate;
+            modalTasks.replaceChildren();
+            modalSummary.textContent = "Loading routines...";
+            modal.hidden = false;
+            document.body.classList.add("modal-open");
+            closeButton.focus();
 
-    day.addEventListener(
-        "click",
-        async function(){
+            try {
+                const response = await fetch("/calendar_day/" + encodeURIComponent(selectedDate));
+                if (!response.ok) throw new Error("Unable to load this day");
+                const data = await response.json();
+                const completed = data.tasks.filter(task => task.completed).length;
+                modalSummary.textContent = completed + " of " + data.tasks.length + " routines completed";
 
-            const date =
-            this.dataset.date;
+                if (!data.tasks.length) {
+                    const empty = document.createElement("p");
+                    empty.className = "habit-day-empty";
+                    empty.textContent = "No routines were available for this day.";
+                    modalTasks.appendChild(empty);
+                }
 
-            if(!date) return;
+                data.tasks.forEach(function (task) {
+                    const row = document.createElement("div");
+                    row.className = "habit-day-task" + (task.completed ? " is-complete" : "");
+                    const status = document.createElement("span");
+                    status.textContent = task.completed ? "Done" : "Not completed";
+                    const name = document.createElement("strong");
+                    name.textContent = task.name;
+                    row.append(status, name);
+                    modalTasks.appendChild(row);
+                });
+            } catch (error) {
+                modalSummary.textContent = "This day could not be loaded. Please try again.";
+            }
+        });
+    });
 
-            const response =
-            await fetch(
-                "/calendar_day/" +
-                date
-            );
-
-            const data =
-            await response.json();
-
-            document.getElementById(
-                "modalDate"
-            ).textContent = date;
-
-            let html = "";
-
-            data.tasks.forEach(task => {
-
-                html += `
-                    <p>
-                        ${
-                            task.completed
-                            ? "✅"
-                            : "❌"
-                        }
-                        ${task.name}
-                    </p>
-                `;
-            });
-
-            document.getElementById(
-                "modalTasks"
-            ).innerHTML = html;
-
-            document.getElementById(
-                "dayModal"
-            ).style.display = "block";
-
-        }
-    );
-
+    closeButton.addEventListener("click", closeModal);
+    modal.addEventListener("click", event => { if (event.target === modal) closeModal(); });
+    document.addEventListener("keydown", event => { if (event.key === "Escape" && !modal.hidden) closeModal(); });
 });
-
-function closeModal(){
-
-    document.getElementById(
-        "dayModal"
-    ).style.display = "none";
-}
-
 </script>
-
 {% endblock %}

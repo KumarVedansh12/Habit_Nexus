@@ -1,35 +1,5 @@
-<footer class="footer">
-
-    <div class="footer-left">
-
-        <h3>HabitNexus 🚀</h3>
-
-        <p>
-            Build habits, track progress,Grow Daily,
-            and compete with friends.
-        </p>
-
-    </div>
-
-    <div class="footer-center">
-
-        <a href="/dashboard">Dashboard</a>
-        <a href="/analytics">Analytics</a>
-        <a href="/leaderboard">Leaderboard</a>
-        <a href="/friends-hub">Friends</a>
-
-    </div>
-
-    <div class="footer-right">
-
-        <p>
-            Made by Vedansh
-        </p>
-
-        <p>
-            © 2026 HabitNexus
-        </p>
-
-    </div>
-
+<footer class="app-footer">
+    <div><a href="{{ url_for('dashboard') }}"><span>HN</span><strong>HabitNexus</strong></a><p>A focused progress system for engineering students.</p></div>
+    <nav><a href="{{ url_for('analytics') }}">Analytics</a><a href="{{ url_for('dsa_tracker') }}">DSA</a><a href="{{ url_for('friends_hub') }}">Friends</a><a href="{{ url_for('settings') }}">Settings</a></nav>
+    <p>Built and improved with real student feedback.</p>
 </footer>

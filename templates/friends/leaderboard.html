@@ -1,31 +1,59 @@
 {% extends "layout/base.html" %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/leaderboard.css') }}">
+{% endblock %}
+
 {% block content %}
+<main class="weekly-leaderboard">
+    <header class="leaderboard-header">
+        <div><span>Weekly momentum</span><h1>Student leaderboard</h1><p>Ranking progress from {{ period_start }} through today using habits, new DSA solves, and full-day streaks.</p></div>
+        <a href="{{ url_for('friends_hub') }}">Challenge a friend</a>
+    </header>
 
-<h1>
-    Leaderboard 🏆
-</h1>
+    {% if current_entry %}
+    <section class="leaderboard-personal">
+        <div><span>Your position</span><strong>#{{ current_entry.rank }}</strong><small>of {{ participant_count }} students</small></div>
+        <div><span>Weekly score</span><strong>{{ current_entry.score }}</strong><small>out of 100</small></div>
+        <div><span>Habit rate</span><strong>{{ current_entry.habit_rate }}%</strong><small>{{ current_entry.weekly_completions }} completions</small></div>
+        <div><span>DSA growth</span><strong>+{{ current_entry.dsa_growth }}</strong><small>new solved problems</small></div>
+    </section>
+    {% endif %}
 
-<div class="leaderboard">
+    <section class="leaderboard-method">
+        <div><span>How scoring works</span><h2>A balanced weekly score</h2><p>65% habit completion rate, 20% DSA growth, and 15% current full-day streak. Every component is capped, keeping the score between 0 and 100.</p></div>
+    </section>
 
-    {% for user in leaderboard_data %}
+    {% if leaderboard_data %}
+    <section class="leaderboard-podium">
+        {% for user in leaderboard_data[:3] %}
+        <article class="podium-card rank-{{ user.rank }} {% if user.is_current_user %}is-you{% endif %}" data-score="{{ user.score }}">
+            <span class="podium-rank">#{{ user.rank }}</span>
+            <img src="{{ user.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt="{{ user.username }} profile picture">
+            <h2>{{ user.username }}{% if user.is_current_user %}<small>You</small>{% endif %}</h2>
+            <p>{{ user.college or 'Engineering student' }}</p>
+            <strong>{{ user.score }}<span>points</span></strong>
+            <div class="podium-metrics"><span>{{ user.habit_rate }}% habits</span><span>+{{ user.dsa_growth }} DSA</span><span>{{ user.streak }} day streak</span></div>
+            <a href="{{ url_for('view_profile', user_id=user.id) }}">View profile</a>
+        </article>
+        {% endfor %}
+    </section>
 
-    <div class="leader-card">
-
-        <h2>
-            {{ loop.index }}.
-            {{ user.username }}
-        </h2>
-
-        <p>
-            Progress:
-            {{ user.progress }}%
-        </p>
-
-    </div>
-
-    {% endfor %}
-
-</div>
-
+    {% if leaderboard_data|length > 3 %}
+    <section class="leaderboard-list">
+        <header><span>All rankings</span><h2>Weekly standings</h2></header>
+        {% for user in leaderboard_data[3:] %}
+        <article class="leaderboard-row {% if user.is_current_user %}is-you{% endif %}" data-score="{{ user.score }}">
+            <strong class="leaderboard-rank">#{{ user.rank }}</strong>
+            <a href="{{ url_for('view_profile', user_id=user.id) }}" class="leaderboard-person"><img src="{{ user.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt=""><div><strong>{{ user.username }}</strong><span>{{ user.college or 'Engineering student' }}</span></div></a>
+            <div class="leaderboard-row-metrics"><span><strong>{{ user.habit_rate }}%</strong> habits</span><span><strong>+{{ user.dsa_growth }}</strong> DSA</span><span><strong>{{ user.streak }}</strong> streak</span></div>
+            <strong class="leaderboard-score">{{ user.score }}</strong>
+        </article>
+        {% endfor %}
+    </section>
+    {% endif %}
+    {% else %}
+    <div class="leaderboard-empty"><strong>No leaderboard data yet</strong><span>Students will appear as they begin tracking habits and DSA progress.</span></div>
+    {% endif %}
+</main>
 {% endblock %}

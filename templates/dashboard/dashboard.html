@@ -1,212 +1,107 @@
 {% extends "layout/base.html" %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
 {% block content %}
-
-<!-- HERO -->
-
-<div class="hero-section">
-
-    <div class="hero-left">
-
-        <h1>
-            Welcome Back 👋
-        </h1>
-
-        <p>
-            Build routines,
-            track progress,
-            and compete with friends.
-        </p>
-
-    </div>
-
-</div>
-
-<!-- STATS -->
-
-<div class="stats-grid">
-
-    <div class="stat-card">
-        <h3>🔥 Streak</h3>
-        <h1>{{ streak }}</h1>
-    </div>
-
-    <div class="stat-card">
-        <h3>✅ Completed</h3>
-        <h1>{{ completed }}</h1>
-    </div>
-
-    <div class="stat-card">
-        <h3>📈 Progress</h3>
-        <h1>{{ progress }}</h1>
-    </div>
-
-    <div class="stat-card">
-        <h3>🏆 Rank</h3>
-        <h1>{{ rank }}</h1>
-    </div>
-
-</div>
-
-<!-- TASK SECTION -->
-
-<div class="task-layout">
-
-    <div class="task-section">
-
-        <div class="section-header">
-
-            <h2>
-                Today's Tasks
-            </h2>
-
+<main class="student-dashboard">
+    <header class="dashboard-header dashboard-enter">
+        <div>
+            <span class="dashboard-kicker">{{ today_label }}</span>
+            <h1>Welcome back, {{ user.username }}.</h1>
+            <p>Keep today small, clear, and complete.</p>
         </div>
+        <a href="{{ url_for('calendar') }}" class="dashboard-header-link">Review calendar</a>
+    </header>
 
-        <form
-            action="/add_routine"
-            method="POST"
-            class="task-form"
-        >
+    <section class="dashboard-summary-grid dashboard-enter" aria-label="Today summary">
+        <article><span>Today</span><strong>{{ completed }}/{{ total }}</strong><small>{{ progress }}% of routines complete</small></article>
+        <article><span>Still to do</span><strong>{{ pending }}</strong><small>{% if pending %}Keep the next action simple{% else %}Daily plan completed{% endif %}</small></article>
+        <article><span>Full-day streak</span><strong>{{ streak }} days</strong><small>Every active routine completed</small></article>
+        <article><span>LeetCode solved</span><strong>{{ leetcode_total }}</strong><small>{{ dsa_completed }} / {{ dsa_target }} roadmap problems</small></article>
+    </section>
 
-            <input
-                type="text"
-                name="task"
-                placeholder="Add routine..."
-            >
-
-            <button type="submit">
-                Add
-            </button>
-
-        </form>
-
-        <div class="task-list">
-
-            {% for routine in routines %}
-            <div class="
-            task-card
-            {% if routine.completed == 1 %}
-            completed-card
+    <section class="dashboard-focus dashboard-enter">
+        <div>
+            <span class="dashboard-kicker">Next action</span>
+            {% if focus_task %}
+            <h2>{{ focus_task.task_name }}</h2>
+            <p>Complete one unfinished routine now. Momentum usually begins with the smallest visible step.</p>
+            {% elif total %}
+            <h2>Today is complete.</h2>
+            <p>Your full routine is checked off. Review progress or prepare tomorrow without adding unnecessary work.</p>
+            {% else %}
+            <h2>Create your first daily routine.</h2>
+            <p>Start with one repeatable action that supports study, health, or interview preparation.</p>
             {% endif %}
-            ">
-
-                <div class="task-left">
-
-                    <h3>
-
-                        {% if routine.completed == 1 %}
-                            ✅
-                        {% endif %}
-
-                        {{ routine.task_name }}
-
-                    </h3>
-
-                </div>
-
-                <div class="task-actions">
-
-                    <a
-                        href="/toggle/{{ routine.id }}"
-                        class="action-btn complete-btn"
-                    >
-
-                        {% if routine.completed == 1 %}
-                            Undo
-                        {% else %}
-                            Complete
-                        {% endif %}
-
-                    </a>
-
-                    <a
-                        href="/delete/{{ routine.id }}"
-                        class="action-btn delete-btn"
-                    >
-                        Delete
-                    </a>
-
-                </div>
-
-            </div>
-            {% endfor %}
-
         </div>
+        <div class="dashboard-progress-ring" style="--dashboard-progress: {{ progress }}"><strong>{{ progress }}%</strong><span>today</span></div>
+    </section>
 
-    </div>
+    <div class="dashboard-main-grid">
+        <section class="dashboard-panel dashboard-enter">
+            <div class="dashboard-panel-heading"><div><span class="dashboard-kicker">Daily system</span><h2>Today's routines</h2></div><small>{{ completed }} complete</small></div>
+            <form action="{{ url_for('add_routine') }}" method="POST" class="dashboard-add-form">
+                <input type="text" name="task" maxlength="100" placeholder="Add a clear, repeatable routine" required>
+                <button type="submit">Add routine</button>
+            </form>
 
-    <!-- RIGHT SIDE -->
-
-    <div class="side-widgets">
-
-        <!-- HEATMAP -->
-
-        <div class="widget-card">
-
-            <h2>
-                Activity Heatmap
-            </h2>
-
-            <div class="heatmap">
-
-                {% for day in heatmap_data %}
-
-                <div class="heat-box full">
-
-                    {{ day['log_date'][-2:] }}
-
-                </div>
-
+            {% if routines %}
+            <div class="dashboard-routine-list">
+                {% for routine in routines %}
+                <article class="dashboard-routine {% if routine.completed %}is-complete{% endif %}">
+                    <form action="{{ url_for('toggle', id=routine.id) }}" method="POST">
+                        <button type="submit" class="dashboard-check" aria-label="{{ 'Mark incomplete' if routine.completed else 'Mark complete' }}">{% if routine.completed %}<span></span>{% endif %}</button>
+                    </form>
+                    <div><strong>{{ routine.task_name }}</strong><span>{{ 'Completed today' if routine.completed else 'Ready when you are' }}</span></div>
+                    <form action="{{ url_for('delete', id=routine.id) }}" method="POST">
+                        <button type="submit" class="dashboard-delete">Delete</button>
+                    </form>
+                </article>
                 {% endfor %}
-
             </div>
+            {% else %}
+            <div class="dashboard-empty"><strong>No routines yet</strong><span>Add one useful action above to begin tracking.</span></div>
+            {% endif %}
+        </section>
 
-        </div>
+        <aside class="dashboard-side-stack">
+            <section class="dashboard-panel dashboard-enter">
+                <div class="dashboard-panel-heading"><div><span class="dashboard-kicker">Last 7 days</span><h2>Completion trend</h2></div></div>
+                <div id="dashboardWeekChart" class="dashboard-chart"></div>
+            </section>
 
-        <!-- QUICK LINKS -->
-
-        <div class="widget-card">
-
-            <h2>
-                Quick Access
-            </h2>
-
-            <div class="quick-links">
-
-                <a href="/analytics">
-                    Analytics
-                </a>
-
-                <a href="/leaderboard">
-                    Leaderboard
-                </a>
-
-                <a href="/friends-hub">
-                    Friends
-                </a>
-
-                <a href="/dsa_tracker">
-
-                    <i class="fas fa-code"></i>
-
-                    DSA Tracker
-
-                </a>
-
-                <a href="/export_habits" class="quick-link">
-                    Export Habits
-                </a>
-
-                <a href="/export_dsa" class="quick-link">
-                     Export DSA
-                </a>
-
-            </div>
-
-        </div>
-
+            <section class="dashboard-panel dashboard-enter">
+                <div class="dashboard-panel-heading"><div><span class="dashboard-kicker">Community</span><h2>Your network</h2></div></div>
+                <div class="dashboard-network-stats"><div><strong>{{ friend_count }}</strong><span>Friends</span></div><div><strong>{{ active_challenges }}</strong><span>Active challenges</span></div></div>
+                <div class="dashboard-link-list">
+                    <a href="{{ url_for('friends_hub') }}">Open friends hub</a>
+                    <a href="{{ url_for('leaderboard') }}">View weekly leaderboard</a>
+                    <a href="{{ url_for('dsa_tracker') }}">Update DSA roadmap</a>
+                    <a href="{{ url_for('analytics') }}">Review analytics</a>
+                </div>
+            </section>
+        </aside>
     </div>
+</main>
 
-</div>
-
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    if (!window.ApexCharts) return;
+    const textColor = getComputedStyle(document.body).getPropertyValue("--muted").trim() || "#94a3b8";
+    const gridColor = getComputedStyle(document.body).getPropertyValue("--border").trim() || "#334155";
+    new ApexCharts(document.querySelector("#dashboardWeekChart"), {
+        series: [{ name: "Completion", data: {{ weekly_rates|tojson }} }],
+        chart: { type: "bar", height: 245, toolbar: { show: false }, animations: { enabled: true, speed: 650 } },
+        colors: ["#6366f1"],
+        plotOptions: { bar: { borderRadius: 5, columnWidth: "52%" } },
+        dataLabels: { enabled: false },
+        xaxis: { categories: {{ weekly_labels|tojson }}, labels: { style: { colors: textColor, fontSize: "10px" } } },
+        yaxis: { min: 0, max: 100, labels: { style: { colors: textColor }, formatter: value => Math.round(value) + "%" } },
+        grid: { borderColor: gridColor, strokeDashArray: 4 },
+        tooltip: { theme: document.body.classList.contains("light-mode") ? "light" : "dark", y: { formatter: value => value + "% complete" } }
+    }).render();
+});
+</script>
 {% endblock %}

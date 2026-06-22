@@ -1,0 +1,87 @@
+{% extends "layout/base.html" %}
+
+{% block extra_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/developer.css') }}">{% endblock %}
+
+{% block content %}
+<main class="developer-console">
+    <header class="developer-header">
+        <div><span>Protected workspace</span><h1>Developer console</h1><p>Monitor real growth, control account access, review suggestions, and publish landing-page information.</p></div>
+        <a href="{{ url_for('home') }}" target="_blank" rel="noopener">Open landing page</a>
+    </header>
+
+    <nav class="developer-section-nav"><a href="#overview">Overview</a><a href="#users">Users</a><a href="#suggestions">Suggestions</a><a href="#content">Landing content</a></nav>
+
+    <section class="developer-metrics" id="overview" aria-label="Platform metrics">
+        <article><span>Total users</span><strong>{{ metrics.users }}</strong><small>{{ metrics.active_users }} active accounts</small></article>
+        <article><span>New this week</span><strong>{{ metrics.new_users }}</strong><small>Registrations in 7 days</small></article>
+        <article><span>Routines</span><strong>{{ metrics.routines }}</strong><small>{{ metrics.completions }} logged completions</small></article>
+        <article><span>Friendships</span><strong>{{ metrics.friendships }}</strong><small>Accepted connections</small></article>
+        <article><span>New suggestions</span><strong>{{ metrics.new_suggestions }}</strong><small>Waiting for review</small></article>
+    </section>
+
+    <section class="developer-chart-grid">
+        <article class="developer-panel"><header><div><span>30-day growth</span><h2>New registrations</h2></div></header><div id="developerSignupChart" class="developer-chart"></div></article>
+        <article class="developer-panel"><header><div><span>14-day usage</span><h2>Habit completions</h2></div></header><div id="developerCompletionChart" class="developer-chart"></div></article>
+    </section>
+
+    <section class="developer-panel" id="users">
+        <header class="developer-panel-header"><div><span>Account management</span><h2>Users</h2><p>Deactivate access without deleting progress or historical data.</p></div><input type="search" id="developerUserSearch" placeholder="Search users" aria-label="Search users"></header>
+        <div class="developer-table-wrap">
+            <table class="developer-user-table">
+                <thead><tr><th>User</th><th>Joined</th><th>Last login</th><th>Routines</th><th>DSA</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr data-user-search="{{ (user.username + ' ' + user.email)|lower }}">
+                        <td><div class="developer-user"><img src="{{ user.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt=""><div><strong>{{ user.username }}</strong><span>{{ user.email }}</span></div>{% if user.is_developer %}<b>Developer</b>{% endif %}</div></td>
+                        <td>{{ user.created_at[:10] if user.created_at else 'Unknown' }}</td>
+                        <td>{{ user.last_login_at[:10] if user.last_login_at else 'Never' }}</td>
+                        <td>{{ user.routines }}</td><td>{{ user.dsa_solved }}</td>
+                        <td><span class="developer-status {{ 'active' if user.is_active else 'disabled' }}">{{ 'Active' if user.is_active else 'Disabled' }}</span></td>
+                        <td>{% if not user.is_developer %}<form method="POST" action="{{ url_for('developer_toggle_user', user_id=user.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button type="submit" class="developer-row-action">{{ 'Deactivate' if user.is_active else 'Reactivate' }}</button></form>{% else %}<span class="developer-protected">Protected</span>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="developer-panel" id="suggestions">
+        <header><div><span>Product feedback</span><h2>Suggestions</h2><p>Review ideas submitted from the public landing page.</p></div></header>
+        {% if suggestions %}<div class="developer-suggestion-list">
+            {% for suggestion in suggestions %}<article><div class="suggestion-meta"><div><strong>{{ suggestion.name }}</strong><span>{{ suggestion.email or 'No email' }} / {{ suggestion.created_at }}</span></div><span class="developer-status suggestion-{{ suggestion.status }}">{{ suggestion.status|title }}</span></div><p>{{ suggestion.message }}</p><form method="POST" action="{{ url_for('developer_suggestion_status', suggestion_id=suggestion.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><select name="status" aria-label="Suggestion status"><option value="new" {% if suggestion.status == 'new' %}selected{% endif %}>New</option><option value="reviewed" {% if suggestion.status == 'reviewed' %}selected{% endif %}>Reviewed</option><option value="resolved" {% if suggestion.status == 'resolved' %}selected{% endif %}>Resolved</option></select><button type="submit">Update status</button></form></article>{% endfor %}
+        </div>{% else %}<div class="developer-empty">No suggestions have been submitted.</div>{% endif %}
+    </section>
+
+    <section class="developer-content-layout" id="content">
+        <form method="POST" action="{{ url_for('developer_add_content') }}" class="developer-panel developer-content-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <header><div><span>Publish information</span><h2>New landing update</h2><p>Published items appear in the public “From the developer” section.</p></div></header>
+            <label><span>Title</span><input type="text" name="title" maxlength="100" required></label>
+            <label><span>Description</span><textarea name="body" maxlength="600" required></textarea></label>
+            <div class="developer-field-grid"><label><span>Link label</span><input type="text" name="link_label" maxlength="40"></label><label><span>Link URL</span><input type="text" name="link_url" maxlength="300" placeholder="/register or https://..."></label><label><span>Display order</span><input type="number" name="display_order" value="0"></label></div>
+            <button type="submit" class="developer-primary-button">Publish update</button>
+        </form>
+
+        <section class="developer-panel">
+            <header><div><span>Current content</span><h2>Landing updates</h2><p>Edit, reorder, publish, or hide existing items.</p></div></header>
+            {% if content_items %}<div class="developer-content-list">{% for item in content_items %}<details><summary><div><strong>{{ item.title }}</strong><span>Order {{ item.display_order }} / {{ 'Published' if item.is_published else 'Hidden' }}</span></div><b>Edit</b></summary><form method="POST" action="{{ url_for('developer_update_content', content_id=item.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><label><span>Title</span><input type="text" name="title" maxlength="100" value="{{ item.title }}" required></label><label><span>Description</span><textarea name="body" maxlength="600" required>{{ item.body }}</textarea></label><div class="developer-field-grid"><label><span>Link label</span><input type="text" name="link_label" value="{{ item.link_label or '' }}"></label><label><span>Link URL</span><input type="text" name="link_url" value="{{ item.link_url or '' }}"></label><label><span>Order</span><input type="number" name="display_order" value="{{ item.display_order }}"></label></div><button type="submit">Save changes</button></form><form method="POST" action="{{ url_for('developer_toggle_content', content_id=item.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button type="submit" class="developer-toggle-button">{{ 'Hide from landing page' if item.is_published else 'Publish on landing page' }}</button></form></details>{% endfor %}</div>{% else %}<div class="developer-empty">No landing updates yet. Publish the first one using the form.</div>{% endif %}
+        </section>
+    </section>
+</main>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const search = document.getElementById("developerUserSearch");
+    search.addEventListener("input", function () {
+        const query = search.value.trim().toLowerCase();
+        document.querySelectorAll("[data-user-search]").forEach(row => { row.hidden = !row.dataset.userSearch.includes(query); });
+    });
+    if (!window.ApexCharts) return;
+    const text = getComputedStyle(document.body).getPropertyValue("--muted").trim() || "#94a3b8";
+    const grid = getComputedStyle(document.body).getPropertyValue("--border").trim() || "#334155";
+    const base = { chart: { height: 285, toolbar: { show: false }, animations: { enabled: true, speed: 700 } }, dataLabels: { enabled: false }, grid: { borderColor: grid, strokeDashArray: 4 }, tooltip: { theme: document.body.classList.contains("light-mode") ? "light" : "dark" } };
+    new ApexCharts(document.querySelector("#developerSignupChart"), { ...base, series: [{ name: "Users", data: {{ signup_counts|tojson }} }], chart: { ...base.chart, type: "area" }, colors: ["#6366f1"], stroke: { curve: "smooth", width: 3 }, fill: { type: "gradient", gradient: { opacityFrom: .38, opacityTo: .04 } }, xaxis: { categories: {{ signup_labels|tojson }}, tickAmount: 6, labels: { style: { colors: text, fontSize: "9px" } } }, yaxis: { min: 0, labels: { style: { colors: text }, formatter: value => Math.round(value) } } }).render();
+    new ApexCharts(document.querySelector("#developerCompletionChart"), { ...base, series: [{ name: "Completions", data: {{ completion_counts|tojson }} }], chart: { ...base.chart, type: "bar" }, colors: ["#14b8a6"], plotOptions: { bar: { borderRadius: 5, columnWidth: "55%" } }, xaxis: { categories: {{ completion_labels|tojson }}, labels: { rotate: -35, style: { colors: text, fontSize: "9px" } } }, yaxis: { min: 0, labels: { style: { colors: text }, formatter: value => Math.round(value) } } }).render();
+});
+</script>
+{% endblock %}

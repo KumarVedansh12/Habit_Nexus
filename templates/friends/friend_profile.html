@@ -8,7 +8,7 @@
 <div class="profile-header">
 
     <img
-        src="{{ friend.profile_image or 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' }}"
+        src="{{ friend.profile_image or url_for('static', filename='images/default-avatar.svg') }}"
         class="profile-avatar"
         alt="Profile Picture"
     >
@@ -140,17 +140,11 @@
         You and {{ friend.username }} are connected.
     </p>
 
-    <a
-        href="/remove-friend/{{ friend.id }}"
-        class="remove-btn"
-        onclick="return confirm('Remove this friend?')"
-    >
-        Remove Friend
-    </a>
+    <form method="POST" action="{{ url_for('remove_friend', friend_id=friend.id) }}">
+        <button type="submit" class="remove-btn">Remove Friend</button>
+    </form>
 
 </div>
-```
-
 </div>
 
 <script src="{{ url_for('static', filename='js/profile.js') }}"></script>

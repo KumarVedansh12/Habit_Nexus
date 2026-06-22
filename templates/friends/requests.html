@@ -16,12 +16,9 @@
             {{ request.username }}
         </h2>
 
-        <a
-            href="/accept-request/{{ request.id }}"
-            class="friend-btn"
-        >
-            Accept
-        </a>
+        <form method="POST" action="{{ url_for('accept_request', request_id=request.id) }}">
+            <button type="submit" class="friend-btn">Accept</button>
+        </form>
 
     </div>
 

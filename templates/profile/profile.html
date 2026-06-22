@@ -1,241 +1,65 @@
-
 {% extends "layout/base.html" %}
 
 {% block content %}
+<main class="account-profile-page">
+    <header class="account-page-header">
+        <div><span>Public identity</span><h1>Build a useful student profile</h1><p>Share academic context and progress links without exposing private account details.</p></div>
+        <a href="{{ url_for('view_profile', user_id=user.id) }}">Preview public profile</a>
+    </header>
 
-<div class="profile-page">
-
-    <!-- PROFILE HEADER -->
-
-    <div class="profile-header">
-
-        <!-- <img
-            src="
-            {% if user.profile_image %}
-                {{ user.profile_image }}
-            {% else %}
-                https://cdn-icons-png.flaticon.com/512/3135/3135715.png
-            {% endif %}
-            "
-            class="profile-avatar"
-        > -->
-        <img
-                id="preview"
-                src="{{ user.profile_image or 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' }}"
-                class="profile-avatar"
-            >
-
-        <div>
-
-            <h1>
-                {{ user.username or 'User' }}
-            </h1>
-
-            <p>
-                {{ user.bio or 'No bio available.' }}
-            </p>
-
+    <section class="profile-editor-hero">
+        <div class="profile-avatar-editor">
+            <img id="profilePreview" src="{{ user.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt="Profile preview">
+            <label for="profileImage">Change photo</label>
         </div>
+        <div><span>{{ user.branch or 'Engineering student' }}</span><h2>{{ user.username }}</h2><p>{{ user.bio or 'Add a short introduction that tells other students what you are working toward.' }}</p></div>
+        <div class="profile-completion"><strong>{{ completion_percentage }}%</strong><span>Profile complete</span><div><i style="width: {{ completion_percentage }}%"></i></div></div>
+    </section>
 
-        <div class="completion-card">
+    <form method="POST" enctype="multipart/form-data" class="profile-editor-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input id="profileImage" type="file" name="profile_image" accept="image/png,image/jpeg,image/webp" hidden>
 
-            <div class="completion-header">
-                <h3>Profile Completion</h3>
-                <span>{{ completion_percentage }}%</span>
+        <section class="account-form-card">
+            <header><span>About you</span><h2>Public introduction</h2><p>Keep this short and relevant to your learning goals.</p></header>
+            <label><span>Bio</span><textarea name="bio" maxlength="300" placeholder="What are you learning or preparing for?">{{ user.bio or '' }}</textarea><small>Maximum 300 characters</small></label>
+        </section>
+
+        <section class="account-form-card">
+            <header><span>Academic context</span><h2>Education details</h2><p>Help peers understand your current stage.</p></header>
+            <div class="account-field-grid">
+                <label><span>College</span><input type="text" name="college" maxlength="120" value="{{ user.college or '' }}" placeholder="College or university"></label>
+                <label><span>Branch</span><input type="text" name="branch" maxlength="80" value="{{ user.branch or '' }}" placeholder="e.g. Computer Science"></label>
+                <label><span>Year of study</span><input type="text" name="year" maxlength="30" value="{{ user.year or '' }}" placeholder="e.g. Third year"></label>
             </div>
+        </section>
 
-            <div class="progress-bar">
-
-                <div
-                    class="progress-fill"
-                    style="width: {{ completion_percentage }}%;"
-                ></div>
-
+        <section class="account-form-card">
+            <header><span>Professional presence</span><h2>Public links</h2><p>Only full http:// or https:// links are accepted.</p></header>
+            <div class="account-field-grid">
+                <label><span>GitHub</span><input type="url" name="github" maxlength="250" value="{{ user.github or '' }}" placeholder="https://github.com/username"></label>
+                <label><span>LinkedIn</span><input type="url" name="linkedin" maxlength="250" value="{{ user.linkedin or '' }}" placeholder="https://linkedin.com/in/username"></label>
+                <label><span>LeetCode</span><input type="url" name="leetcode" maxlength="250" value="{{ user.leetcode or '' }}" placeholder="https://leetcode.com/u/username"></label>
             </div>
+        </section>
 
-        </div>
-
-    </div>
-
-    <!-- PROFILE FORM -->
-
-    <form
-        method="POST"
-        enctype="multipart/form-data"
-        class="profile-form"
-    >
-
-        <!-- BASIC INFO -->
-
-        <div class="profile-card-section">
-
-            <h2>
-                Basic Information 👤
-            </h2>
-            <label>Profile Picture</label>
-
-            <input
-                type="file"
-                name="profile_image"
-                accept="image/*"
-            >
-            <label>
-                Username
-            </label>
-            <input
-                type="text"
-                name="username"
-                placeholder="Username"
-                value="{{ user.username or '' }}"
-                required
-            >
-            <label>
-                Bio
-            </label>    
-            <textarea
-                name="bio"
-                placeholder="Write your bio..."
-            >{{ user.bio or '' }}</textarea>
-            <label>
-                Email
-            </label>
-            <input
-                type="email"
-                name="email"
-                placeholder="Email"
-                value="{{ user.email }}"
-            >
-            <!-- <label>
-                Profile Image URL
-            </label>
-            <input
-                type="text"
-                name="profile_image"
-                placeholder="Profile Image URL"
-                value="{{ user.profile_image or ''  }}" 
-            > -->
-
-        </div>
-
-        <!-- ACADEMIC -->
-
-        <div class="profile-card-section">
-
-            <h2>
-                Academic Details 🎓
-            </h2>
-
-            <label>
-                College Name
-            </label>
-            <input
-                type="text"
-                name="college"
-                placeholder="Enter your college"
-                value="{{ user.college or '' }}"
-            >
-            <label>
-                Branch
-            </label>
-            <input
-                type="text"
-                name="branch"
-                placeholder="Branch"
-                value="{{ user.branch or '' }}"
-            >
-
-            <label>
-                year of study
-            </label>
-            <input
-                type="text"
-                name="year"
-                placeholder="Year"
-                value="{{ user.year or '' }}"
-            >
-
-        </div>
-
-        <!-- PROFESSIONAL LINKS -->
-
-        <div class="profile-card-section">
-
-            <h2>
-                Professional Links 💼
-            </h2>
-            <label>
-                GitHub
-            </label>
-            <input
-                type="text"
-                name="github"
-                placeholder="GitHub URL"
-                value="{{ user.github or '' }}"
-            >
-            <label>
-                LinkedIn
-            </label>
-            <input
-                type="text"
-                name="linkedin"
-                placeholder="LinkedIn URL"
-                value="{{ user.linkedin or '' }}"
-            >
-            <label>
-                LeetCode
-            </label>
-            <input
-                type="text"
-                name="leetcode"
-                placeholder="LeetCode URL"
-                value="{{ user.leetcode or '' }}"
-            >
-
-        </div>
-
-        <button
-            type="submit"
-            class="save-btn"
-        >
-            Save Profile
-        </button>
-
+        <div class="account-form-actions"><p>Username and email are managed in Settings.</p><button type="submit">Save public profile</button></div>
     </form>
-
-</div>
+</main>
 
 <script>
-
-const input =
-document.querySelector(
-'input[name="profile_image"]'
-);
-
-const preview =
-document.getElementById(
-'preview'
-);
-
-input.addEventListener(
-'change',
-function(){
-
-    const file =
-    this.files[0];
-
-    if(file){
-
-        preview.src =
-        URL.createObjectURL(
-            file
-        );
-
-    }
-
-}
-);
-
+document.addEventListener("DOMContentLoaded", function () {
+    const input = document.getElementById("profileImage");
+    const preview = document.getElementById("profilePreview");
+    input.addEventListener("change", function () {
+        const file = input.files[0];
+        if (!file) return;
+        const previous = preview.dataset.previewUrl;
+        if (previous) URL.revokeObjectURL(previous);
+        const objectUrl = URL.createObjectURL(file);
+        preview.dataset.previewUrl = objectUrl;
+        preview.src = objectUrl;
+    });
+});
 </script>
-
 {% endblock %}
-

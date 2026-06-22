@@ -1,106 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>Login | Routine Battle</title>
-
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}"
-    >
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-
-    <link
-        rel="preconnect"
-        href="https://fonts.gstatic.com"
-        crossorigin
-    >
-
-    <link
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Sign in | HabitNexus</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/readability.css') }}">
 </head>
+<body class="auth-page">
+    <main class="auth-shell">
+        <section class="auth-story">
+            <a href="{{ url_for('home') }}" class="auth-brand"><span>HN</span><strong>HabitNexus</strong></a>
+            <div><span class="auth-kicker">Student progress system</span><h1>Build consistency you can actually see.</h1><p>Plan routines, measure DSA progress, and grow alongside students who are working toward the same goals.</p></div>
+            <ul><li>Daily routine tracking</li><li>Interview preparation workspace</li><li>Progress challenges with friends</li></ul>
+        </section>
+        <section class="auth-form-side">
+            <div class="auth-panel">
+                <span class="auth-kicker">Welcome back</span>
+                <h2>Sign in to your workspace</h2>
+                <p>Use your username or email address.</p>
 
-<body>
+                {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="auth-alert {{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
+                {% if error %}<div class="auth-alert error">{{ error }}</div>{% endif %}
 
-    <div class="auth-container">
-
-        <div class="auth-left">
-
-            <h1>
-                Welcome Back 👋
-            </h1>
-
-            <p>
-                Track your routines,
-                build streaks,
-                and compete with friends.
-            </p>
-
-            <img
-                src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
-                alt=""
-            >
-
-        </div>
-
-        <div class="auth-right">
-
-            <div class="auth-card">
-
-                <h2>
-                    Login
-                </h2>
-
-                <form method="POST">
-
-                    <input
-                        type="text"
-                        name="identifier"
-                        placeholder="Username or Email"
-                        required
-                    >
-
-                    <input
-                        type="password"
-                        name="password"
-                        placeholder="Password"
-                        required
-                    >
-
-                    <button type="submit">
-                        Login
-                    </button>
-
+                <form method="POST" class="account-form">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <label><span>Username or email</span><input type="text" name="identifier" value="{{ request.form.get('identifier', '') }}" autocomplete="username" required autofocus></label>
+                    <label><span>Password</span><input type="password" name="password" autocomplete="current-password" required></label>
+                    <button type="submit">Sign in</button>
                 </form>
-
-                <p class="auth-link">
-
-                    Don't have an account?
-
-                    <a href="/register">
-                        Register
-                    </a>
-
-                </p>
-
+                <p class="auth-switch">New to HabitNexus? <a href="{{ url_for('register') }}">Create an account</a></p>
             </div>
-
-        </div>
-
-    </div>
-
+        </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
 </body>
-
 </html>

@@ -1,180 +1,133 @@
 {% extends "layout/base.html" %}
 
-{% block extra_css %}
-<link
-    rel="stylesheet"
-    href="{{ url_for('static', filename='css/friends.css') }}"
->
-{% endblock %}
-
 {% block content %}
-<div class="friends-page">
-
-    <!-- HERO SECTION -->
-    <section class="friends-hero">
-        <div class="hero-badge">
-            🚀 NEXT GEN SOCIAL EXPERIENCE
+<main class="network-page">
+    <section class="network-hero">
+        <div>
+            <span class="network-eyebrow">Student network</span>
+            <h1>Grow with people who keep showing up.</h1>
+            <p>Follow real progress, compare consistency, and challenge friends using their latest HabitNexus data.</p>
         </div>
-        <h1>Social Command Center</h1>
-        <p>
-            Connect with coders, build streak battles,
-            track progress, compete with friends,
-            and grow together.
-        </p>
-
-        <div class="hero-stats">
-            <div class="hero-stat-card">
-                <h2>{{ friends|length }}</h2>
-                <span>Friends</span>
-            </div>
-
-            <div class="hero-stat-card">
-                <h2>{{ requests|length }}</h2>
-                <span>Requests</span>
-            </div>
-
-            <div class="hero-stat-card">
-                <h2>{{ activities|length }}</h2>
-                <span>Activities</span>
-            </div>
-        </div>
+        <a href="#discover" class="network-primary-link">Find students</a>
     </section>
 
-    <!-- FRIEND REQUESTS SECTION -->
-    <section class="friends-section">
-        <div class="section-header">
-            <h2>🔔 Friend Requests</h2>
-        </div>
+    <section class="network-summary" aria-label="Network summary">
+        <article><strong>{{ friends|length }}</strong><span>Connections</span></article>
+        <article><strong>{{ requests|length }}</strong><span>Pending requests</span></article>
+        <article><strong>{{ active_challenges }}</strong><span>Active challenges</span></article>
+        <article><strong>{{ current_streak }}</strong><span>Your day streak</span></article>
+    </section>
 
-        {% if requests %}
-        <div class="request-grid">
+    {% if requests %}
+    <section class="network-section">
+        <div class="network-section-heading">
+            <div><span class="network-eyebrow">Waiting for you</span><h2>Friend requests</h2></div>
+            <span class="network-count">{{ requests|length }}</span>
+        </div>
+        <div class="network-request-list">
             {% for request in requests %}
-            <div class="request-card">
-                <div class="request-left">
-                    <img
-                        src="{{ request.profile_image if request.profile_image else url_for('static', filename='images/default.png') }}"
-                        class="profile-img"
-                        alt="{{ request.username }}'s profile"
-                    >
-                    <div>
-                        <h3>{{ request.username }}</h3>
-                        <p>{{ request.college }}</p>
-                    </div>
-                </div>
-                <a href="/accept-request/{{ request.id }}" class="accept-btn">
-                    Accept
+            <article class="network-request-card">
+                <a href="{{ url_for('view_profile', user_id=request.sender_id) }}" class="network-person">
+                    <img src="{{ request.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt="{{ request.username }} profile picture">
+                    <div><strong>{{ request.username }}</strong><span>{{ request.college or 'Engineering student' }}</span></div>
                 </a>
-            </div>
+                <form method="POST" action="{{ url_for('accept_request', request_id=request.id) }}">
+                    <button type="submit" class="network-button network-button-primary">Accept request</button>
+                </form>
+            </article>
             {% endfor %}
         </div>
-        {% else %}
-        <div class="empty-box">
-            No pending friend requests.
-        </div>
-        {% endif %}
     </section>
+    {% endif %}
 
-    <!-- FRIENDS SECTION -->
-    <section class="friends-section">
-        <div class="section-header">
-            <h2>🤝 Your Friends</h2>
+    <section class="network-section">
+        <div class="network-section-heading">
+            <div><span class="network-eyebrow">Your circle</span><h2>Friends and progress</h2></div>
+            <span class="network-count">{{ friends|length }}</span>
         </div>
 
         {% if friends %}
-        <div class="friends-grid">
+        <div class="network-friend-grid">
             {% for friend in friends %}
-            <div class="friend-card">
-                <div class="online-dot"></div>
-                <img
-                    src="{{ friend.profile_image if friend.profile_image else url_for('static', filename='images/default.png') }}"
-                    class="profile-img"
-                    alt="{{ friend.username }}'s profile"
-                >
-                <h3>{{ friend.username }}</h3>
-                <p>{{ friend.college }}</p>
-
-                <div class="friend-actions">
-                    <a href="/challenge/{{ friend.id }}" class="challenge-btn">
-                         Challenge
+            <article class="network-friend-card">
+                <div class="network-friend-header">
+                    <a href="{{ url_for('view_profile', user_id=friend.id) }}" class="network-person">
+                        <img src="{{ friend.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt="{{ friend.username }} profile picture">
+                        <div><strong>{{ friend.username }}</strong><span>{{ friend.branch or friend.college or 'Engineering student' }}</span></div>
                     </a>
-                    <a href="/remove-friend/{{ friend.id }}" class="remove-btn">
-                        Remove
-                    </a>
+                    <span class="network-streak">{{ friend.streak }} day streak</span>
                 </div>
-            </div>
+                <div class="network-metric-row">
+                    <div><strong>{{ friend.dsa_solved }}</strong><span>DSA solved</span></div>
+                    <div><strong>{{ friend.habits_completed }}</strong><span>Habits done</span></div>
+                    <div><strong>{{ friend.challenge_wins }}</strong><span>Wins</span></div>
+                </div>
+                <div class="network-card-actions">
+                    <form method="POST" action="{{ url_for('challenge_friend', friend_id=friend.id) }}">
+                        <button type="submit" class="network-button network-button-primary">Open challenge</button>
+                    </form>
+                    <a href="{{ url_for('view_profile', user_id=friend.id) }}" class="network-button network-button-secondary">View profile</a>
+                    <form method="POST" action="{{ url_for('remove_friend', friend_id=friend.id) }}">
+                        <button type="submit" class="network-text-button">Remove</button>
+                    </form>
+                </div>
+            </article>
             {% endfor %}
         </div>
         {% else %}
-        <div class="empty-box">
-            No friends added yet.
-        </div>
+        <div class="network-empty"><h3>Your network starts here</h3><p>Connect with a student below to compare progress and begin challenges.</p></div>
         {% endif %}
     </section>
 
-    <!-- DISCOVER USERS SECTION -->
-    <section class="friends-section">
-        <div class="section-header">
-            <h2>🌎 Discover Users</h2>
+    <section class="network-section" id="discover">
+        <div class="network-section-heading">
+            <div><span class="network-eyebrow">Discover</span><h2>Students you can connect with</h2></div>
+            <span class="network-count">{{ users|length }}</span>
         </div>
 
-
-        <div class="discover-grid" id="discoverGrid">
+        {% if users %}
+        <div class="network-discover-grid">
             {% for user in users %}
-            <div class="discover-card">
-                <div class="discover-top">
-                    <img
-                        src="{{ user.profile_image if user.profile_image else url_for('static', filename='images/default.png') }}"
-                        class="profile-img"
-                        alt="{{ user.username }}'s profile"
-                    >
-                    <div>
-                        <h3>{{ user.username }}</h3>
-                        <p>{{ user.college }}</p>
-                        <span class="online-text">● Available</span>
-                    </div>
+            <article class="network-discover-card">
+                <a href="{{ url_for('view_profile', user_id=user.id) }}" class="network-person">
+                    <img src="{{ user.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt="{{ user.username }} profile picture">
+                    <div><strong>{{ user.username }}</strong><span>{{ user.branch or user.college or 'Engineering student' }}</span></div>
+                </a>
+                <p>{{ user.bio or 'Building consistent study and problem-solving habits.' }}</p>
+                <div class="network-discover-metrics">
+                    <span><strong>{{ user.dsa_solved }}</strong> DSA solved</span>
+                    <span><strong>{{ user.habits_completed }}</strong> habits done</span>
                 </div>
-
-                <div class="discover-bottom">
-                    <span class="skill-badge">
-                        🚀 Competitive Programmer
-                    </span>
-                    <div class="discover-actions">
-                        <a href="/send-request/{{ user.id }}" class="add-btn">
-                            Add Friend
-                        </a>
-                        <a href="/profile/{{ user.id }}" class="profile-btn">
-                            View Profile
-                        </a>
-                    </div>
+                <div class="network-card-actions">
+                    <form method="POST" action="{{ url_for('send_request', user_id=user.id) }}">
+                        <button type="submit" class="network-button network-button-primary">Connect</button>
+                    </form>
+                    <a href="{{ url_for('view_profile', user_id=user.id) }}" class="network-button network-button-secondary">View profile</a>
                 </div>
-            </div>
-            {% endfor %}
-        </div>
-    </section>
-
-    <!-- ACTIVITY FEED SECTION -->
-    <section class="friends-section">
-        <div class="section-header">
-            <h2>📈 Activity Feed</h2>
-        </div>
-
-        {% if activities %}
-        <div class="activity-feed">
-            {% for activity in activities %}
-            <div class="activity-card">
-                <strong>{{ activity.username }}</strong>
-                <p>{{ activity.activity }}</p>
-            </div>
+            </article>
             {% endfor %}
         </div>
         {% else %}
-        <div class="empty-box">
-            No recent activities.
-        </div>
+        <div class="network-empty"><h3>You are all caught up</h3><p>No new students are available to connect with right now.</p></div>
         {% endif %}
     </section>
 
-</div>
-
-<script src="{{ url_for('static', filename='js/friends.js') }}"></script>
+    <section class="network-section">
+        <div class="network-section-heading">
+            <div><span class="network-eyebrow">From your circle</span><h2>Recent activity</h2></div>
+        </div>
+        {% if activities %}
+        <div class="network-activity-list">
+            {% for activity in activities %}
+            <article>
+                <img src="{{ activity.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt="">
+                <div><strong>{{ activity.username }}</strong><p>{{ activity.activity }}</p><time>{{ activity.created_at }}</time></div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="network-empty"><h3>No activity yet</h3><p>Updates from you and your friends will appear here as progress is recorded.</p></div>
+        {% endif %}
+    </section>
+</main>
 {% endblock %}
