@@ -10,7 +10,7 @@
 .developer-section-nav { position: sticky; z-index: 100; top: 67px; display: flex; gap: 7px; margin-bottom: 18px; padding: 8px; overflow-x: auto; border: 1px solid var(--border); border-radius: 13px; background: color-mix(in srgb, var(--input) 90%, transparent); backdrop-filter: blur(15px); }
 .developer-section-nav a { padding: 8px 10px; border-radius: 8px; color: var(--muted); font-size: 8px; font-weight: 750; text-decoration: none; white-space: nowrap; }
 .developer-section-nav a:hover { background: var(--card2); color: var(--text); }
-.developer-metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 11px; margin-bottom: 16px; scroll-margin-top: 135px; }
+.developer-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 11px; margin-bottom: 16px; scroll-margin-top: 135px; }
 .developer-metrics article,
 .developer-panel { border: 1px solid var(--border); background: var(--card); box-shadow: 0 16px 38px rgba(2, 6, 23, .1); }
 .developer-metrics article { padding: 18px; border-radius: 15px; }

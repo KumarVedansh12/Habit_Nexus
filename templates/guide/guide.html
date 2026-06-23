@@ -1,0 +1,95 @@
+{% extends "layout/base.html" %}
+
+{% block content %}
+<main class="guide-page">
+    <header class="guide-hero">
+        <div>
+            <span>HabitNexus guide</span>
+            <h1>How to use your student workspace.</h1>
+            <p>HabitNexus helps engineering students track daily routines, DSA progress, friends, challenges, and learning consistency in one place.</p>
+        </div>
+        <a href="{{ url_for('dashboard') }}">Open dashboard</a>
+    </header>
+
+    <section class="guide-grid">
+        <article>
+            <strong>1</strong>
+            <h2>Start with your dashboard</h2>
+            <p>Add daily routines such as coding practice, revision, exercise, reading, or project work. Mark them complete for the selected date. Previous days stay saved, so your history remains visible.</p>
+        </article>
+        <article>
+            <strong>2</strong>
+            <h2>Review calendar history</h2>
+            <p>Use Calendar to check what happened on any day. This is useful when you want to see missed routines, completed tasks, or your consistency pattern.</p>
+        </article>
+        <article>
+            <strong>3</strong>
+            <h2>Use analytics weekly</h2>
+            <p>Analytics summarizes completion rate, streak behavior, DSA growth, strongest habits, and areas that need attention. Use it to reduce overload and improve your study system.</p>
+        </article>
+        <article>
+            <strong>4</strong>
+            <h2>Track DSA preparation</h2>
+            <p>Add topic targets, update solved counts, keep pending topics, and connect your LeetCode username. HabitNexus stores daily solved-count history so progress becomes measurable.</p>
+        </article>
+        <article>
+            <strong>5</strong>
+            <h2>Connect with friends</h2>
+            <p>Share your User ID with classmates. Search by exact User ID, send requests, accept or reject incoming requests, and view richer progress only after becoming friends.</p>
+        </article>
+        <article>
+            <strong>6</strong>
+            <h2>Challenge responsibly</h2>
+            <p>Challenges compare real habit, DSA, and streak data. Use them for motivation, not pressure. The goal is consistent improvement, not fake competition.</p>
+        </article>
+    </section>
+
+    <section class="guide-panel">
+        <div>
+            <span>Privacy rules</span>
+            <h2>What others can see</h2>
+        </div>
+        <ul>
+            <li>Students do not see a full public list of all users.</li>
+            <li>Other users find you only by your exact User ID.</li>
+            <li>Before connecting, they see only basic profile details such as name, college, and bio.</li>
+            <li>Friends can see more progress information for challenges and comparison.</li>
+            <li>Personal account email and password are never shown publicly.</li>
+        </ul>
+    </section>
+
+    <section class="guide-panel">
+        <div>
+            <span>Notifications</span>
+            <h2>AI coach and developer pins</h2>
+        </div>
+        <ul>
+            <li>AI coach notifications are generated from your pending routines for today.</li>
+            <li>You can remove AI notifications for your account.</li>
+            <li>Developer pinned notifications are official announcements and are managed only by the developer.</li>
+            <li>Account notifications can be removed from the notification center.</li>
+        </ul>
+    </section>
+
+    <section class="guide-panel">
+        <div>
+            <span>Settings</span>
+            <h2>Manage your account safely</h2>
+        </div>
+        <ul>
+            <li>Update your username and email after confirming your current password.</li>
+            <li>Change your password from the Security card.</li>
+            <li>Send suggestions to the developer directly from Settings.</li>
+            <li>Delete app data if you want to reset progress but keep your account.</li>
+            <li>Delete account only when you want to permanently remove your profile and data.</li>
+        </ul>
+    </section>
+
+    <section class="guide-actions">
+        <a href="{{ url_for('dashboard') }}">Go to Dashboard</a>
+        <a href="{{ url_for('dsa_tracker') }}">Open DSA Workspace</a>
+        <a href="{{ url_for('friends_hub') }}">Find Friends</a>
+        <a href="{{ url_for('settings') }}">Send Suggestion</a>
+    </section>
+</main>
+{% endblock %}

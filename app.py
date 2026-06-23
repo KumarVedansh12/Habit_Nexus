@@ -28,8 +28,7 @@ datetime
 )
 
 from database import (
-    get_db_connection,
-    init_db
+    get_db_connection
 )
 import os
 from werkzeug.utils import secure_filename
@@ -63,8 +62,6 @@ os.makedirs(
     app.config["UPLOAD_FOLDER"],
     exist_ok=True
 )
-
-init_db()
 
 ALLOWED_PROFILE_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 ALLOWED_PROFILE_MIMES = {"image/png", "image/jpeg", "image/webp"}
@@ -235,6 +232,52 @@ def rows_to_contact_details(rows):
     return details
 
 
+def configured_developer_emails():
+    raw_emails = os.environ.get("DEVELOPER_EMAILS", "")
+    return {
+        email.strip().lower()
+        for email in raw_emails.split(",")
+        if email.strip()
+    }
+
+
+def is_configured_developer(user):
+    return bool(user and user["email"].lower() in configured_developer_emails())
+
+
+def ensure_developer_access(conn, user):
+    if not is_configured_developer(user):
+        return user
+    if int(user["is_developer"] or 0):
+        return user
+
+    conn.execute(
+        "UPDATE users SET is_developer=1 WHERE id=?",
+        (user["id"],)
+    )
+    conn.commit()
+    promoted_user = dict(user)
+    promoted_user["is_developer"] = 1
+    return promoted_user
+
+
+def session_user_context(user):
+    return {
+        "id": user["id"],
+        "username": user["username"],
+        "email": user["email"],
+        "profile_image": user["profile_image"],
+        "is_developer": int(user["is_developer"] or 0),
+        "is_active": int(user["is_active"] or 0),
+        "public_id": user["public_id"],
+    }
+
+
+def refresh_session_user(user):
+    session["user_context"] = session_user_context(user)
+    g.current_user = session["user_context"]
+
+
 def csrf_token():
     token = session.get("csrf_token")
     if not token:
@@ -254,12 +297,23 @@ def load_current_user_and_protect_forms():
 
     user_id = session.get("user_id")
     if user_id:
-        conn = get_db_connection()
-        g.current_user = conn.execute(
-            "SELECT * FROM users WHERE id=?",
-            (user_id,)
-        ).fetchone()
-        conn.close()
+        cached_user = session.get("user_context")
+        if cached_user and cached_user.get("id") == user_id:
+            g.current_user = cached_user
+        else:
+            conn = get_db_connection()
+            g.current_user = conn.execute(
+                """
+                SELECT id, username, email, profile_image, is_developer, is_active, public_id
+                FROM users
+                WHERE id=?
+                """,
+                (user_id,)
+            ).fetchone()
+            if g.current_user and g.current_user["is_active"]:
+                g.current_user = ensure_developer_access(conn, g.current_user)
+                refresh_session_user(g.current_user)
+            conn.close()
         if not g.current_user or not g.current_user["is_active"]:
             session.clear()
             g.current_user = None
@@ -334,7 +388,7 @@ def developer_required(view):
     def wrapped_view(*args, **kwargs):
         if not g.current_user:
             return redirect(url_for("login"))
-        if not g.current_user["is_developer"]:
+        if not g.current_user["is_developer"] and not is_configured_developer(g.current_user):
             abort(403)
         return view(*args, **kwargs)
     return wrapped_view
@@ -358,11 +412,17 @@ def developer_dashboard():
             (SELECT COALESCE(SUM(completed), 0) FROM task_logs) AS completions,
             (SELECT COUNT(*) FROM friends) AS friendships,
             (SELECT COUNT(*) FROM suggestions WHERE status='new') AS new_suggestions,
-            (SELECT COALESCE(SUM(latest), 0) FROM (
-                SELECT MAX(solved_count) AS latest
-                FROM dsa_history
-                GROUP BY user_id
-            )) AS dsa_solved
+            (SELECT COALESCE(SUM(latest.solved_count), 0)
+             FROM dsa_history AS latest
+             WHERE NOT EXISTS (
+                SELECT 1
+                FROM dsa_history AS newer
+                WHERE newer.user_id=latest.user_id
+                AND (
+                    newer.log_date>latest.log_date
+                    OR (newer.log_date=latest.log_date AND newer.id>latest.id)
+                )
+             )) AS dsa_solved
         """,
         (seven_days_ago.isoformat(),)
     ).fetchone()
@@ -406,7 +466,11 @@ def developer_dashboard():
             users.is_active, users.is_developer, users.created_at, users.last_login_at,
             (SELECT COUNT(*) FROM routines WHERE user_id=users.id) AS routines,
             COALESCE(
-                (SELECT MAX(solved_count) FROM dsa_history WHERE user_id=users.id),
+                (SELECT solved_count
+                 FROM dsa_history
+                 WHERE user_id=users.id
+                 ORDER BY log_date DESC, id DESC
+                 LIMIT 1),
                 (SELECT SUM(completed) FROM dsa_topics WHERE user_id=users.id),
                 0
             ) AS dsa_solved
@@ -829,29 +893,37 @@ def login():
             """,
             (identifier, identifier, identifier)
         ).fetchone()
-        conn.close()
 
         if user and not user["is_active"]:
             error = "This account is currently disabled. Contact the developer."
         elif user and check_password_hash(user["password"], password):
-            conn = get_db_connection()
+            user = ensure_developer_access(conn, user)
             conn.execute(
                 "UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?",
                 (user["id"],)
             )
             conn.commit()
-            conn.close()
             session.clear()
             session["user_id"] = user["id"]
+            refresh_session_user(user)
             session.permanent = True
+            conn.close()
             return redirect(url_for("dashboard"))
         elif not error:
             error = "The username, email, Student ID, or password is incorrect."
+        conn.close()
 
     return render_template(
         "auth/login.html",
         error=error
     )
+
+
+@app.route("/guide")
+def guide():
+    if "user_id" not in session:
+        return redirect("/login")
+    return render_template("guide/guide.html")
 
 
 @app.route("/forgot-password", methods=["GET", "POST"])
@@ -1542,6 +1614,9 @@ def profile():
         )
 
         conn.commit()
+        updated_user = dict(user)
+        updated_user["profile_image"] = image_path
+        refresh_session_user(updated_user)
         conn.close()
         flash("Public profile updated.", "success")
         return redirect(url_for("profile"))
@@ -1598,6 +1673,23 @@ def settings():
         action = request.form.get("action")
         current_password = request.form.get("current_password", "")
 
+        if action == "suggestion":
+            message = request.form.get("message", "").strip()[:1200]
+            if len(message) < 10:
+                flash("Suggestion must be at least 10 characters.", "error")
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO suggestions (user_id, name, email, message)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (session["user_id"], user["username"], user["email"], message)
+                )
+                conn.commit()
+                flash("Suggestion sent to the developer.", "success")
+            conn.close()
+            return redirect(url_for("settings"))
+
         if not check_password_hash(user["password"], current_password):
             flash("Current password is incorrect.", "error")
             conn.close()
@@ -1626,6 +1718,10 @@ def settings():
                         (username, email, session["user_id"])
                     )
                     conn.commit()
+                    updated_user = dict(user)
+                    updated_user["username"] = username
+                    updated_user["email"] = email
+                    refresh_session_user(updated_user)
                     flash("Account details updated.", "success")
 
         elif action == "password":
@@ -3672,4 +3768,4 @@ def delete_pending_topic(id):
 #         debug=True
 #     )
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), debug=os.environ.get("APP_ENV") != "production")

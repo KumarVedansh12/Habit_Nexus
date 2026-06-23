@@ -11,6 +11,7 @@
             <a href="{{ url_for('analytics') }}" class="{% if request.endpoint == 'analytics' %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Analytics</span></a>
             <a href="{{ url_for('calendar') }}" class="{% if request.endpoint in ['calendar', 'calendar_day'] %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M3 5h18v16H3zM7 3v4M17 3v4M3 10h18"/></svg><span>Calendar</span></a>
             <a href="{{ url_for('dsa_tracker') }}" class="{% if request.endpoint == 'dsa_tracker' %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="m8 9-3 3 3 3M16 9l3 3-3 3M14 5l-4 14"/></svg><span>DSA workspace</span></a>
+            <a href="{{ url_for('guide') }}" class="{% if request.endpoint == 'guide' %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5zM8 7h8M8 11h8"/></svg><span>Guide</span></a>
         </div>
 
         <div class="sidebar-group">

@@ -7,15 +7,18 @@ from urllib.parse import urlparse
 
 try:
     import psycopg2
+    from psycopg2 import pool
     from psycopg2.extras import RealDictCursor
 except ImportError:  # PostgreSQL is optional unless DATABASE_URL is configured.
     psycopg2 = None
+    pool = None
     RealDictCursor = None
 
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 SQLITE_DATABASE = os.environ.get("SQLITE_DATABASE", "database.db")
 PLACEHOLDER_DATABASE_HOSTS = {"host", "your-host", "postgres-host", "db-host"}
+POSTGRES_POOL = None
 
 TABLE_NAMES = (
     "users",
@@ -217,8 +220,10 @@ class PostgresCursor:
 
 
 class PostgresConnection:
-    def __init__(self, connection):
+    def __init__(self, connection, connection_pool=None):
         self.connection = connection
+        self.connection_pool = connection_pool
+        self.closed = False
 
     def execute(self, sql, params=None):
         cursor = self.connection.cursor(cursor_factory=RealDictCursor)
@@ -237,7 +242,18 @@ class PostgresConnection:
         self.connection.rollback()
 
     def close(self):
-        self.connection.close()
+        if self.closed:
+            return
+        self.closed = True
+        if self.connection_pool:
+            try:
+                self.connection.rollback()
+            except Exception:
+                self.connection_pool.putconn(self.connection, close=True)
+                return
+            self.connection_pool.putconn(self.connection)
+        else:
+            self.connection.close()
 
 
 def is_placeholder_database_url(database_url):
@@ -252,6 +268,8 @@ def using_postgres():
 
 
 def get_db_connection():
+    global POSTGRES_POOL
+
     if DATABASE_URL and is_placeholder_database_url(DATABASE_URL):
         warnings.warn(
             "DATABASE_URL is a placeholder, so HabitNexus is using local SQLite. "
@@ -261,7 +279,7 @@ def get_db_connection():
         )
 
     if using_postgres():
-        if psycopg2 is None:
+        if psycopg2 is None or pool is None:
             raise RuntimeError(
                 "DATABASE_URL is set, but psycopg2-binary is not installed."
             )
@@ -271,19 +289,21 @@ def get_db_connection():
         if not parsed.scheme.startswith("postgres"):
             raise RuntimeError("Invalid PostgreSQL DATABASE_URL")
 
-        kwargs = {
-            "sslmode": os.environ.get("DATABASE_SSLMODE", "require")
-        }
+        if POSTGRES_POOL is None:
+            POSTGRES_POOL = pool.ThreadedConnectionPool(
+                minconn=int(os.environ.get("DB_POOL_MIN", "1")),
+                maxconn=int(os.environ.get("DB_POOL_MAX", "5")),
+                dsn=DATABASE_URL,
+                connect_timeout=int(os.environ.get("DB_CONNECT_TIMEOUT", "5")),
+                sslmode=os.environ.get("DATABASE_SSLMODE", "require"),
+                keepalives=1,
+                keepalives_idle=30,
+                keepalives_interval=10,
+                keepalives_count=5,
+            )
 
-        connection = psycopg2.connect(
-            DATABASE_URL,
-            cursor_factory=RealDictCursor,
-            connect_timeout=10,
-            sslmode=os.environ.get("DATABASE_SSLMODE", "require")
-           
-        )
-
-        return PostgresConnection(connection)
+        connection = POSTGRES_POOL.getconn()
+        return PostgresConnection(connection, POSTGRES_POOL)
 
     conn = sqlite3.connect(SQLITE_DATABASE)
     conn.row_factory = sqlite3.Row
@@ -352,8 +372,8 @@ def init_db():
         )
 
     conn.execute(
-    "UPDATE users SET created_at = COALESCE(created_at, NOW()::text)"
-)
+        "UPDATE users SET created_at=COALESCE(created_at, CURRENT_TIMESTAMP)"
+    )
 
     existing_public_ids = {
         row["public_id"]

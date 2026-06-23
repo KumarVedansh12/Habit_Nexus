@@ -12,6 +12,10 @@ SECRET_KEY=your-long-random-secret
 DATABASE_URL=postgresql://user:password@host:5432/database
 DATABASE_SSLMODE=require
 SESSION_COOKIE_SECURE=1
+DEVELOPER_EMAILS=your-admin-email@example.com
+DB_POOL_MIN=1
+DB_POOL_MAX=5
+DB_CONNECT_TIMEOUT=5
 ```
 
 Install dependencies:
@@ -37,7 +41,11 @@ DATABASE_URL="postgresql://user:password@host:5432/database" python3 scripts/mig
 ## Run
 
 ```bash
-gunicorn app:app
+gunicorn app:app --workers 2 --threads 4 --timeout 120 --access-logfile -
 ```
 
 For hosted platforms, keep `database.db` out of production and use the managed PostgreSQL connection string as `DATABASE_URL`.
+
+`init_db()` is intentionally not called during app startup. Run it once during setup or migration, then start Gunicorn. This keeps hosted workers fast and prevents every web worker from running schema checks on boot.
+
+If developer access is lost after migration, set `DEVELOPER_EMAILS` to the email address of your admin account. After that account logs in, HabitNexus will restore `is_developer=1` automatically.

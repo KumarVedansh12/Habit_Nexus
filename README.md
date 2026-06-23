@@ -157,6 +157,10 @@ SECRET_KEY=change-this-to-a-long-random-secret
 DATABASE_URL=postgresql://habitnexus_user:password@host:5432/habitnexus
 DATABASE_SSLMODE=require
 SESSION_COOKIE_SECURE=1
+DEVELOPER_EMAILS=your-admin-email@example.com
+DB_POOL_MIN=1
+DB_POOL_MAX=5
+DB_CONNECT_TIMEOUT=5
 ```
 
 | Variable | Purpose |
@@ -166,6 +170,10 @@ SESSION_COOKIE_SECURE=1
 | `DATABASE_URL` | PostgreSQL connection string. If omitted, SQLite is used. |
 | `DATABASE_SSLMODE` | PostgreSQL SSL mode, commonly `require` on hosted databases. |
 | `SESSION_COOKIE_SECURE` | Set to `1` when the app runs behind HTTPS. |
+| `DEVELOPER_EMAILS` | Comma-separated admin emails that should always regain developer access. |
+| `DB_POOL_MIN` | Minimum PostgreSQL pooled connections per Gunicorn worker. |
+| `DB_POOL_MAX` | Maximum PostgreSQL pooled connections per Gunicorn worker. |
+| `DB_CONNECT_TIMEOUT` | PostgreSQL connection timeout in seconds. |
 | `SQLITE_DATABASE` | Optional local SQLite database path. Defaults to `database.db`. |
 
 ## Production and PostgreSQL
@@ -187,7 +195,7 @@ DATABASE_URL="postgresql://user:password@host:5432/database" python3 scripts/mig
 Run with Gunicorn:
 
 ```bash
-gunicorn app:app
+gunicorn app:app --workers 2 --threads 4 --timeout 120 --access-logfile -
 ```
 
 The included `Procfile` is intended for platforms such as Render.
@@ -200,9 +208,12 @@ The included `Procfile` is intended for platforms such as Render.
 - Set a strong `SECRET_KEY`.
 - Set `DATABASE_SSLMODE=require`.
 - Set `SESSION_COOKIE_SECURE=1`.
+- Set `DEVELOPER_EMAILS` to your admin account email so developer access can recover after migration.
+- Keep `DB_POOL_MAX` modest for Supabase, for example `5`, to avoid exhausting database connections.
 - Use `pip install -r requirements.txt` as the build command.
-- Use `gunicorn app:app` as the start command.
+- Use `gunicorn app:app --workers 2 --threads 4 --timeout 120 --access-logfile -` as the start command.
 - Do not rely on `database.db` in production.
+- Run `init_db()` once during setup or migration. The app no longer runs heavy schema initialization during web worker startup.
 
 ## Database Tables
 
@@ -246,6 +257,7 @@ HabitNexus is primarily a server-rendered Flask app. Routes return HTML pages, r
 | Method | Route | Purpose |
 | --- | --- | --- |
 | `GET` | `/dashboard` | Student dashboard with daily routine overview. |
+| `GET` | `/guide` | User guide for learning how to use HabitNexus. |
 | `POST` | `/add_routine` | Add a routine. |
 | `POST` | `/toggle/<id>` | Toggle routine completion for selected date. |
 | `POST` | `/delete/<id>` | Delete a routine. |
@@ -296,7 +308,7 @@ HabitNexus is primarily a server-rendered Flask app. Routes return HTML pages, r
 | Method | Route | Purpose |
 | --- | --- | --- |
 | `GET, POST` | `/profile` | Manage current user's profile. |
-| `GET, POST` | `/settings` | Manage account settings, password, data deletion, and account deletion. |
+| `GET, POST` | `/settings` | Manage account settings, send suggestions, password, data deletion, and account deletion. |
 
 ### Developer Routes
 
@@ -315,6 +327,7 @@ Developer routes require a logged-in user with `is_developer=1`.
 | `POST` | `/developer/notifications/<notification_id>/toggle` | Pin or unpin developer notification. |
 | `POST` | `/developer/notifications/<notification_id>/delete` | Delete developer notification. |
 | `POST` | `/developer/suggestions/<suggestion_id>/status` | Mark suggestion as new, reviewed, or resolved. |
+| `POST` | `/developer/suggestions/<suggestion_id>/delete` | Remove a resolved suggestion. |
 
 ## Privacy Model
 
@@ -361,7 +374,7 @@ python3 app.py
 Run production server locally:
 
 ```bash
-gunicorn app:app
+gunicorn app:app --workers 2 --threads 4 --timeout 120 --access-logfile -
 ```
 
 Check Python syntax:

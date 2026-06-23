@@ -16,6 +16,14 @@
         </aside>
 
         <div class="settings-forms">
+            <form method="POST" class="account-form-card suggestion-card">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="suggestion">
+                <header><span>Suggestion</span><h2>Send feedback to developer</h2><p>Report a problem, request a feature, or suggest a smoother student workflow.</p></header>
+                <label><span>Your suggestion</span><textarea name="message" minlength="10" maxlength="1200" placeholder="Write what should improve and why it matters for students..." required></textarea></label>
+                <button type="submit">Send suggestion</button>
+            </form>
+
             <form method="POST" class="account-form-card">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="action" value="account">
