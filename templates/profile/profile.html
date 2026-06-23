@@ -12,7 +12,7 @@
             <img id="profilePreview" src="{{ user.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt="Profile preview">
             <label for="profileImage">Change photo</label>
         </div>
-        <div><span>{{ user.branch or 'Engineering student' }}</span><h2>{{ user.username }}</h2><p>{{ user.bio or 'Add a short introduction that tells other students what you are working toward.' }}</p></div>
+        <div><span>{{ user.public_id }}</span><h2>{{ user.username }}</h2><p>{{ user.bio or 'Add a short introduction that tells other students what you are working toward.' }}</p></div>
         <div class="profile-completion"><strong>{{ completion_percentage }}%</strong><span>Profile complete</span><div><i style="width: {{ completion_percentage }}%"></i></div></div>
     </section>
 

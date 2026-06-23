@@ -82,15 +82,157 @@ def detect_profile_image_type(uploaded_file):
     return None
 
 
-def generate_public_id(conn):
+def public_id_seed(username):
+    seed = re.sub(r"[^a-z0-9]+", "_", username.strip().lower())
+    seed = seed.strip("_") or "student"
+    return seed[:18]
+
+
+def generate_public_id(conn, username):
+    seed = public_id_seed(username)
     while True:
-        public_id = f"HN-{secrets.token_hex(4).upper()}"
+        public_id = f"{seed}_{secrets.randbelow(9000) + 1000}"
         existing = conn.execute(
             "SELECT 1 FROM users WHERE public_id=?",
             (public_id,)
         ).fetchone()
         if not existing:
             return public_id
+
+
+def delete_user_progress(conn, user_id):
+    routine_ids = [
+        row["id"]
+        for row in conn.execute(
+            "SELECT id FROM routines WHERE user_id=?",
+            (user_id,)
+        ).fetchall()
+    ]
+    if routine_ids:
+        placeholders = ",".join("?" for _ in routine_ids)
+        conn.execute(
+            f"DELETE FROM task_logs WHERE routine_id IN ({placeholders})",
+            routine_ids
+        )
+
+    for table in (
+        "routines",
+        "activities",
+        "notifications",
+        "notification_dismissals",
+        "dsa_profiles",
+        "dsa_topics",
+        "pending_topics",
+        "dsa_history",
+    ):
+        conn.execute(f"DELETE FROM {table} WHERE user_id=?", (user_id,))
+
+    conn.execute(
+        """
+        DELETE FROM challenges
+        WHERE challenger_id=? OR challenged_id=? OR winner_id=?
+        """,
+        (user_id, user_id, user_id)
+    )
+    conn.execute(
+        "DELETE FROM friend_requests WHERE sender_id=? OR receiver_id=?",
+        (user_id, user_id)
+    )
+    conn.execute(
+        "DELETE FROM friends WHERE user1_id=? OR user2_id=?",
+        (user_id, user_id)
+    )
+
+
+def delete_user_account(conn, user_id):
+    delete_user_progress(conn, user_id)
+    conn.execute("UPDATE suggestions SET user_id=NULL WHERE user_id=?", (user_id,))
+    conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+
+
+def parse_iso_date(value, default=None):
+    if not value:
+        return default or date.today()
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return default or date.today()
+
+
+def redirect_dashboard_for(day):
+    today = date.today()
+    if day and day != today:
+        return redirect(url_for("dashboard", date=day.isoformat()))
+    return redirect(url_for("dashboard"))
+
+
+def build_ai_notifications(pending_routines, selected_day, progress):
+    if selected_day != date.today() or not pending_routines:
+        return []
+
+    quotes = [
+        "Small progress is still progress.",
+        "One focused action can change the whole day.",
+        "Do the next visible thing, then let momentum help.",
+        "Consistency is built by returning, not by being perfect.",
+    ]
+    pending_names = [routine["task_name"] for routine in pending_routines[:3]]
+    joined_tasks = ", ".join(pending_names)
+    quote = quotes[len(pending_routines) % len(quotes)]
+
+    if progress == 0:
+        title = "Start with one routine"
+        message = f"{joined_tasks} is still waiting. {quote}"
+    elif len(pending_routines) == 1:
+        title = "One task left"
+        message = f"Only {joined_tasks} is pending. Finish it cleanly. {quote}"
+    else:
+        title = f"{len(pending_routines)} routines pending"
+        message = f"Focus on {pending_names[0]} first, then continue. {quote}"
+
+    return [{
+        "key": f"ai-routine-{selected_day.isoformat()}",
+        "title": title,
+        "message": message,
+        "kind": "AI coach",
+        "created_at": selected_day.isoformat(),
+    }]
+
+
+def get_dismissed_notification_keys(conn, user_id):
+    rows = conn.execute(
+        """
+        SELECT notification_key
+        FROM notification_dismissals
+        WHERE user_id=?
+        """,
+        (user_id,)
+    ).fetchall()
+    return {row["notification_key"] for row in rows}
+
+
+PROTOTYPE_METRICS = {
+    "students": 1200,
+    "routines": 8400,
+    "completions": 96,
+    "dsa_solved": 75,
+    "challenges": 40,
+}
+
+DEFAULT_CONTACT_DETAILS = {
+    "email": "hello@habitnexus.dev",
+    "phone": "+91 7052501218",
+    "location": "Kanpur Nagar, Uttar Pradesh",
+    "linkedin": "",
+    "github": "",
+}
+
+
+def rows_to_contact_details(rows):
+    details = DEFAULT_CONTACT_DETAILS.copy()
+    for row in rows:
+        details[row["contact_key"]] = row["contact_value"] or ""
+    return details
 
 
 def csrf_token():
@@ -141,18 +283,6 @@ def profile_upload_too_large(error):
 @app.route("/")
 def home():
     conn = get_db_connection()
-    metrics = conn.execute(
-        """
-        SELECT
-            (SELECT COUNT(*) FROM users WHERE is_active=1) AS students,
-            (SELECT COUNT(*) FROM routines) AS routines,
-            (SELECT COALESCE(SUM(completed), 0) FROM task_logs) AS completions,
-            (SELECT COALESCE(SUM(latest), 0) FROM (
-                SELECT MAX(solved_count) AS latest FROM dsa_history GROUP BY user_id
-            )) AS dsa_solved,
-            (SELECT COUNT(*) FROM challenges) AS challenges
-        """
-    ).fetchone()
     landing_updates = conn.execute(
         """
         SELECT * FROM landing_content
@@ -160,11 +290,15 @@ def home():
         ORDER BY display_order, id DESC
         """
     ).fetchall()
+    contact_rows = conn.execute(
+        "SELECT contact_key, contact_value FROM landing_contact"
+    ).fetchall()
     conn.close()
     return render_template(
         "home.html",
-        metrics=metrics,
+        metrics=PROTOTYPE_METRICS,
         landing_updates=landing_updates,
+        contact_details=rows_to_contact_details(contact_rows),
         current_year=date.today().year
     )
 
@@ -219,7 +353,7 @@ def developer_dashboard():
         SELECT
             (SELECT COUNT(*) FROM users) AS users,
             (SELECT COUNT(*) FROM users WHERE is_active=1) AS active_users,
-            (SELECT COUNT(*) FROM users WHERE DATE(created_at)>=?) AS new_users,
+            (SELECT COUNT(*) FROM users WHERE SUBSTR(created_at, 1, 10)>=?) AS new_users,
             (SELECT COUNT(*) FROM routines) AS routines,
             (SELECT COALESCE(SUM(completed), 0) FROM task_logs) AS completions,
             (SELECT COUNT(*) FROM friends) AS friendships,
@@ -230,9 +364,9 @@ def developer_dashboard():
 
     signup_rows = conn.execute(
         """
-        SELECT DATE(created_at) AS day, COUNT(*) AS total
-        FROM users WHERE DATE(created_at)>=?
-        GROUP BY DATE(created_at)
+        SELECT SUBSTR(created_at, 1, 10) AS day, COUNT(*) AS total
+        FROM users WHERE SUBSTR(created_at, 1, 10)>=?
+        GROUP BY SUBSTR(created_at, 1, 10)
         """,
         (thirty_days_ago.isoformat(),)
     ).fetchall()
@@ -263,7 +397,7 @@ def developer_dashboard():
     users = conn.execute(
         """
         SELECT
-            users.id, users.username, users.email, users.profile_image,
+            users.id, users.username, users.email, users.public_id, users.profile_image,
             users.is_active, users.is_developer, users.created_at, users.last_login_at,
             (SELECT COUNT(*) FROM routines WHERE user_id=users.id) AS routines,
             (SELECT COALESCE(SUM(completed), 0) FROM dsa_topics WHERE user_id=users.id) AS dsa_solved
@@ -276,6 +410,12 @@ def developer_dashboard():
     content_items = conn.execute(
         "SELECT * FROM landing_content ORDER BY display_order, id DESC"
     ).fetchall()
+    pinned_notifications = conn.execute(
+        "SELECT * FROM developer_notifications ORDER BY is_pinned DESC, id DESC"
+    ).fetchall()
+    contact_rows = conn.execute(
+        "SELECT contact_key, contact_value FROM landing_contact"
+    ).fetchall()
     conn.close()
 
     return render_template(
@@ -287,7 +427,9 @@ def developer_dashboard():
         signup_labels=signup_labels,
         signup_counts=signup_counts,
         completion_labels=completion_labels,
-        completion_counts=completion_counts
+        completion_counts=completion_counts,
+        pinned_notifications=pinned_notifications,
+        contact_details=rows_to_contact_details(contact_rows)
     )
 
 
@@ -380,6 +522,132 @@ def developer_toggle_content(content_id):
     return redirect(url_for("developer_dashboard", _anchor="content"))
 
 
+@app.route("/developer/contact", methods=["POST"])
+@developer_required
+def developer_update_contact():
+    fields = {
+        "email": request.form.get("email", "").strip()[:150],
+        "phone": request.form.get("phone", "").strip()[:60],
+        "location": request.form.get("location", "").strip()[:180],
+        "linkedin": request.form.get("linkedin", "").strip()[:300],
+        "github": request.form.get("github", "").strip()[:300],
+    }
+    if fields["email"] and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", fields["email"]):
+        flash("Enter a valid contact email.", "error")
+        return redirect(url_for("developer_dashboard", _anchor="contact"))
+    for key in ("linkedin", "github"):
+        if fields[key] and not fields[key].startswith(("http://", "https://")):
+            flash("Social links must start with http:// or https://.", "error")
+            return redirect(url_for("developer_dashboard", _anchor="contact"))
+
+    conn = get_db_connection()
+    for key, value in fields.items():
+        conn.execute(
+            """
+            INSERT INTO landing_contact (contact_key, contact_value, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(contact_key) DO UPDATE SET
+                contact_value=excluded.contact_value,
+                updated_at=CURRENT_TIMESTAMP
+            """,
+            (key, value)
+        )
+    conn.commit()
+    conn.close()
+    flash("Landing contact details updated.", "success")
+    return redirect(url_for("developer_dashboard", _anchor="contact"))
+
+
+@app.route("/developer/notifications/add", methods=["POST"])
+@developer_required
+def developer_add_notification():
+    title = request.form.get("title", "").strip()[:100]
+    message = request.form.get("message", "").strip()[:600]
+    if not title or not message:
+        flash("Notification title and message are required.", "error")
+        return redirect(url_for("developer_dashboard", _anchor="pins"))
+
+    conn = get_db_connection()
+    conn.execute(
+        """
+        INSERT INTO developer_notifications (title, message, is_pinned)
+        VALUES (?, ?, 1)
+        """,
+        (title, message)
+    )
+    conn.commit()
+    conn.close()
+    flash("Pinned notification published.", "success")
+    return redirect(url_for("developer_dashboard", _anchor="pins"))
+
+
+@app.route("/developer/notifications/<int:notification_id>/update", methods=["POST"])
+@developer_required
+def developer_update_notification(notification_id):
+    title = request.form.get("title", "").strip()[:100]
+    message = request.form.get("message", "").strip()[:600]
+    if not title or not message:
+        flash("Notification title and message are required.", "error")
+        return redirect(url_for("developer_dashboard", _anchor="pins"))
+
+    conn = get_db_connection()
+    conn.execute(
+        """
+        UPDATE developer_notifications
+        SET title=?, message=?, updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (title, message, notification_id)
+    )
+    conn.commit()
+    conn.close()
+    flash("Pinned notification updated.", "success")
+    return redirect(url_for("developer_dashboard", _anchor="pins"))
+
+
+@app.route("/developer/notifications/<int:notification_id>/toggle", methods=["POST"])
+@developer_required
+def developer_toggle_notification(notification_id):
+    conn = get_db_connection()
+    conn.execute(
+        """
+        UPDATE developer_notifications
+        SET is_pinned=CASE is_pinned WHEN 1 THEN 0 ELSE 1 END,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (notification_id,)
+    )
+    conn.commit()
+    conn.close()
+    return redirect(url_for("developer_dashboard", _anchor="pins"))
+
+
+@app.route("/developer/notifications/<int:notification_id>/delete", methods=["POST"])
+@developer_required
+def developer_delete_notification(notification_id):
+    conn = get_db_connection()
+    conn.execute("DELETE FROM developer_notifications WHERE id=?", (notification_id,))
+    conn.commit()
+    conn.close()
+    flash("Pinned notification deleted.", "success")
+    return redirect(url_for("developer_dashboard", _anchor="pins"))
+
+
+@app.route("/developer/suggestions/<int:suggestion_id>/delete", methods=["POST"])
+@developer_required
+def developer_delete_suggestion(suggestion_id):
+    conn = get_db_connection()
+    deleted = conn.execute(
+        "DELETE FROM suggestions WHERE id=? AND status='resolved'",
+        (suggestion_id,)
+    )
+    conn.commit()
+    conn.close()
+    flash("Resolved suggestion removed.", "success")
+    return redirect(url_for("developer_dashboard", _anchor="suggestions"))
+
+
 @app.route("/developer/suggestions/<int:suggestion_id>/status", methods=["POST"])
 @developer_required
 def developer_suggestion_status(suggestion_id):
@@ -400,7 +668,8 @@ def dashboard():
 
     user_id = session["user_id"]
     today = date.today()
-    today_key = today.isoformat()
+    selected_day = parse_iso_date(request.args.get("date"), today)
+    today_key = selected_day.isoformat()
     conn = get_db_connection()
 
     user = conn.execute(
@@ -477,9 +746,24 @@ def dashboard():
         (user_id, user_id, user_id, user_id)
     ).fetchone()
 
+    focus_task = next((routine for routine in routines if not routine["completed"]), None)
+    pending_routines = [routine for routine in routines if not routine["completed"]]
+    dismissed_keys = get_dismissed_notification_keys(conn, user_id)
+    ai_notifications = [
+        note for note in build_ai_notifications(pending_routines, selected_day, progress)
+        if note["key"] not in dismissed_keys
+    ]
+    pinned_notifications = conn.execute(
+        """
+        SELECT id, title, message, created_at
+        FROM developer_notifications
+        WHERE is_pinned=1
+        ORDER BY id DESC
+        LIMIT 3
+        """
+    ).fetchall()
     conn.close()
 
-    focus_task = next((routine for routine in routines if not routine["completed"]), None)
     streak = calculate_streak(user_id)
 
     return render_template(
@@ -496,14 +780,21 @@ def dashboard():
         user=user,
         focus_task=focus_task,
         pending=max(total - completed, 0),
-        today_label=today.strftime("%A, %d %B"),
+        selected_date=today_key,
+        selected_day=selected_day,
+        is_today=selected_day == today,
+        previous_day=(selected_day - timedelta(days=1)).isoformat(),
+        next_day=(selected_day + timedelta(days=1)).isoformat(),
+        today_label=selected_day.strftime("%A, %d %B"),
         weekly_labels=weekly_labels,
         weekly_rates=weekly_rates,
         dsa_completed=dsa_summary["completed"],
         dsa_target=dsa_summary["target"],
         leetcode_total=latest_dsa["solved_count"] if latest_dsa else 0,
         friend_count=social_summary["friends"],
-        active_challenges=social_summary["challenges"]
+        active_challenges=social_summary["challenges"],
+        ai_notifications=ai_notifications,
+        pinned_notifications=pinned_notifications
     )
 @app.route(
     "/login",
@@ -525,8 +816,9 @@ def login():
             FROM users
             WHERE LOWER(username)=LOWER(?)
             OR LOWER(email)=LOWER(?)
+            OR LOWER(public_id)=LOWER(?)
             """,
-            (identifier, identifier)
+            (identifier, identifier, identifier)
         ).fetchone()
         conn.close()
 
@@ -545,11 +837,60 @@ def login():
             session.permanent = True
             return redirect(url_for("dashboard"))
         elif not error:
-            error = "The username/email or password is incorrect."
+            error = "The username, email, Student ID, or password is incorrect."
 
     return render_template(
         "auth/login.html",
         error=error
+    )
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if g.current_user:
+        return redirect(url_for("dashboard"))
+
+    error = None
+    success = None
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        public_id = request.form.get("public_id", "").strip().lower()
+        new_password = request.form.get("new_password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+            error = "Enter the email address on your account."
+        elif not public_id:
+            error = "Enter your Student ID."
+        elif len(new_password) < 8:
+            error = "New password must be at least 8 characters."
+        elif new_password != confirm_password:
+            error = "Passwords do not match."
+        else:
+            conn = get_db_connection()
+            user = conn.execute(
+                """
+                SELECT id
+                FROM users
+                WHERE LOWER(email)=LOWER(?) AND LOWER(public_id)=LOWER(?)
+                """,
+                (email, public_id)
+            ).fetchone()
+            if user:
+                conn.execute(
+                    "UPDATE users SET password=? WHERE id=?",
+                    (generate_password_hash(new_password), user["id"])
+                )
+                conn.commit()
+                success = "Password reset successfully. You can sign in now."
+            else:
+                error = "No account matches that email and Student ID."
+            conn.close()
+
+    return render_template(
+        "auth/forgot_password.html",
+        error=error,
+        success=success
     )
 
 
@@ -602,7 +943,7 @@ def register():
                 INSERT INTO users (username, email, password, public_id, created_at)
                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
                 """,
-                (username, email, generate_password_hash(password), generate_public_id(conn))
+                (username, email, generate_password_hash(password), generate_public_id(conn, username))
             )
             conn.commit()
             conn.close()
@@ -920,9 +1261,15 @@ def leaderboard():
                 ORDER BY log_date ASC LIMIT 1
             ), 0) AS first_dsa
         FROM users
+        WHERE users.id=?
+        OR EXISTS (
+            SELECT 1 FROM friends
+            WHERE (friends.user1_id=? AND friends.user2_id=users.id)
+               OR (friends.user2_id=? AND friends.user1_id=users.id)
+        )
         ORDER BY users.username
         """,
-        (start_date.isoformat(), start_date.isoformat())
+        (start_date.isoformat(), start_date.isoformat(), session["user_id"], session["user_id"], session["user_id"])
     ).fetchall()
     conn.close()
 
@@ -975,7 +1322,41 @@ def notifications():
 
     conn = get_db_connection()
 
-    notifications = conn.execute(
+    selected_day = date.today()
+    today_key = selected_day.isoformat()
+    routines = conn.execute(
+        """
+        SELECT routines.id, routines.task_name, COALESCE(task_logs.completed, 0) AS completed
+        FROM routines
+        LEFT JOIN task_logs
+            ON task_logs.routine_id=routines.id
+            AND task_logs.log_date=?
+        WHERE routines.user_id=?
+        ORDER BY routines.id DESC
+        """,
+        (today_key, session["user_id"])
+    ).fetchall()
+    total = len(routines)
+    completed = sum(int(routine["completed"]) for routine in routines)
+    progress = round((completed / total) * 100) if total else 0
+    dismissed_keys = get_dismissed_notification_keys(conn, session["user_id"])
+    ai_notifications = [
+        note for note in build_ai_notifications(
+            [routine for routine in routines if not routine["completed"]],
+            selected_day,
+            progress
+        )
+        if note["key"] not in dismissed_keys
+    ]
+    pinned_notifications = conn.execute(
+        """
+        SELECT id, title, message, created_at
+        FROM developer_notifications
+        WHERE is_pinned=1
+        ORDER BY id DESC
+        """
+    ).fetchall()
+    user_notifications = conn.execute(
         """
         SELECT *
         FROM notifications
@@ -989,8 +1370,72 @@ def notifications():
 
     return render_template(
         "dashboard/notifications.html",
-        notifications=notifications
+        notifications=user_notifications,
+        ai_notifications=ai_notifications,
+        pinned_notifications=pinned_notifications
     )
+
+
+@app.route("/notifications/clear", methods=["POST"])
+def clear_notifications():
+    if "user_id" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+    conn.execute(
+        "DELETE FROM notifications WHERE user_id=?",
+        (session["user_id"],)
+    )
+    conn.commit()
+    conn.close()
+    flash("Your account notifications were cleared.", "success")
+    return redirect(url_for("notifications"))
+
+
+@app.route("/notifications/ai-dismiss", methods=["POST"])
+def dismiss_ai_notification():
+    if "user_id" not in session:
+        return redirect("/login")
+
+    notification_key = request.form.get("notification_key", "").strip()
+    next_url = request.form.get("next", url_for("notifications"))
+
+    if not re.fullmatch(r"ai-[A-Za-z0-9_.:-]{1,100}", notification_key):
+        abort(400)
+
+    conn = get_db_connection()
+    conn.execute(
+        """
+        INSERT INTO notification_dismissals (user_id, notification_key, dismissed_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id, notification_key)
+        DO UPDATE SET dismissed_at=CURRENT_TIMESTAMP
+        """,
+        (session["user_id"], notification_key)
+    )
+    conn.commit()
+    conn.close()
+
+    flash("AI notification removed.", "success")
+    if not next_url.startswith("/") or next_url.startswith("//"):
+        next_url = url_for("notifications")
+    return redirect(next_url)
+
+
+@app.route("/notifications/<int:notification_id>/delete", methods=["POST"])
+def delete_notification(notification_id):
+    if "user_id" not in session:
+        return redirect("/login")
+
+    conn = get_db_connection()
+    conn.execute(
+        "DELETE FROM notifications WHERE id=? AND user_id=?",
+        (notification_id, session["user_id"])
+    )
+    conn.commit()
+    conn.close()
+    flash("Notification removed.", "success")
+    return redirect(url_for("notifications"))
 @app.route(
     "/search-users",
     methods=["GET","POST"]
@@ -1001,29 +1446,8 @@ def search_users():
 
         return redirect("/login")
 
-    users = []
-
-    if request.method == "POST":
-
-        query = request.form["query"]
-
-        conn = get_db_connection()
-
-        users = conn.execute(
-            """
-            SELECT *
-            FROM users
-            WHERE username LIKE ?
-            """,
-            (f"%{query}%",)
-        ).fetchall()
-
-        conn.close()
-
-    return render_template(
-        "friends/search_users.html",
-        users=users
-    )
+    query = request.form.get("query", "") if request.method == "POST" else request.args.get("query", "")
+    return redirect(url_for("friends_hub", student_id=query.strip()))
 @app.route("/profile", methods=["GET", "POST"])
 def profile():
 
@@ -1211,6 +1635,25 @@ def settings():
                 )
                 conn.commit()
                 flash("Password changed successfully.", "success")
+        elif action == "delete_data":
+            confirmation = request.form.get("confirmation", "").strip()
+            if confirmation != "DELETE DATA":
+                flash("Type DELETE DATA exactly to clear your progress.", "error")
+            else:
+                delete_user_progress(conn, session["user_id"])
+                conn.commit()
+                flash("Your progress, challenges, and activity data were deleted.", "success")
+        elif action == "delete_account":
+            confirmation = request.form.get("confirmation", "").strip()
+            if confirmation != "DELETE ACCOUNT":
+                flash("Type DELETE ACCOUNT exactly to delete your profile.", "error")
+            else:
+                delete_user_account(conn, session["user_id"])
+                conn.commit()
+                conn.close()
+                session.clear()
+                flash("Your account and profile were deleted.", "success")
+                return redirect(url_for("login"))
         else:
             flash("Unknown settings action.", "error")
 
@@ -1233,6 +1676,7 @@ def add_routine():
         return redirect("/login")
 
     task = request.form.get("task", "").strip()[:100]
+    selected_day = parse_iso_date(request.form.get("selected_date"), date.today())
 
     if task:
 
@@ -1264,7 +1708,7 @@ def add_routine():
 
         conn.close()
 
-    return redirect("/dashboard")
+    return redirect_dashboard_for(selected_day)
 
 @app.route("/delete/<int:id>", methods=["POST"])
 def delete(id):
@@ -1273,6 +1717,7 @@ def delete(id):
 
         return redirect("/login")
 
+    selected_day = parse_iso_date(request.form.get("selected_date"), date.today())
     conn = get_db_connection()
 
     conn.execute(
@@ -1303,13 +1748,14 @@ def delete(id):
 
     conn.close()
 
-    return redirect("/dashboard")
+    return redirect_dashboard_for(selected_day)
 @app.route("/toggle/<int:id>", methods=["POST"])
 def toggle(id):
 
     if "user_id" not in session:
         return redirect("/login")
 
+    selected_day = parse_iso_date(request.form.get("selected_date"), date.today())
     conn = get_db_connection()
 
     routine = conn.execute(
@@ -1329,33 +1775,20 @@ def toggle(id):
 
         conn.close()
 
-        return redirect("/dashboard")
+        return redirect_dashboard_for(selected_day)
 
-    today = date.today().isoformat()
+    log_date = selected_day.isoformat()
 
     existing_log = conn.execute(
         """
         SELECT * FROM task_logs
         WHERE routine_id=? AND log_date=?
         """,
-        (id, today)
+        (id, log_date)
     ).fetchone()
 
     current_status = int(existing_log["completed"]) if existing_log else 0
     new_status = 0 if current_status else 1
-
-    conn.execute(
-        """
-        UPDATE routines
-        SET completed=?
-        WHERE id=? AND user_id=?
-        """,
-        (
-            new_status,
-            id,
-            session["user_id"]
-        )
-    )
 
     if existing_log:
 
@@ -1385,7 +1818,7 @@ def toggle(id):
             """,
             (
                 id,
-                today,
+                log_date,
                 new_status
             )
         )
@@ -1394,7 +1827,7 @@ def toggle(id):
 
     conn.close()
 
-    return redirect("/dashboard")
+    return redirect_dashboard_for(selected_day)
 
 # =========================================
 # FRIENDS HUB
@@ -1410,38 +1843,69 @@ def friends_hub():
 
     current_user = session["user_id"]
 
-    # =========================
-    # ALL USERS
-    # =========================
+    current_user_row = conn.execute(
+        "SELECT id, username, public_id FROM users WHERE id=?",
+        (current_user,)
+    ).fetchone()
 
-    users = conn.execute("""
-        SELECT
-            users.*,
-            COALESCE((
-                SELECT SUM(dsa_topics.completed)
-                FROM dsa_topics
-                WHERE dsa_topics.user_id = users.id
-            ), 0) AS dsa_solved,
-            COALESCE((
-                SELECT SUM(routines.completed)
-                FROM routines
-                WHERE routines.user_id = users.id
-            ), 0) AS habits_completed
+    search_query = request.args.get("student_id", "").strip()
+    search_result = None
+    search_notice = None
+
+    if search_query:
+        search_result = conn.execute(
+            """
+            SELECT id, username, public_id, college, bio
+            FROM users
+            WHERE LOWER(public_id)=LOWER(?)
+            AND id!=?
+            AND is_active=1
+            """,
+            (search_query, current_user)
+        ).fetchone()
+
+        if search_result:
+            search_result = dict(search_result)
+            session["last_profile_search_id"] = search_result["id"]
+            friendship = conn.execute(
+                """
+                SELECT 1 FROM friends
+                WHERE (user1_id=? AND user2_id=?) OR (user1_id=? AND user2_id=?)
+                """,
+                (current_user, search_result["id"], search_result["id"], current_user)
+            ).fetchone()
+            request_state = conn.execute(
+                """
+                SELECT sender_id, receiver_id, status
+                FROM friend_requests
+                WHERE status='pending'
+                AND ((sender_id=? AND receiver_id=?) OR (sender_id=? AND receiver_id=?))
+                """,
+                (current_user, search_result["id"], search_result["id"], current_user)
+            ).fetchone()
+
+            if friendship:
+                search_result["relationship"] = "friend"
+            elif request_state and request_state["sender_id"] == current_user:
+                search_result["relationship"] = "sent"
+            elif request_state:
+                search_result["relationship"] = "received"
+            else:
+                search_result["relationship"] = "available"
+        else:
+            search_notice = "No active student was found with that exact User ID."
+
+    developer_users = conn.execute(
+        """
+        SELECT id, username, college, bio
         FROM users
-        WHERE users.id != ?
-        AND NOT EXISTS (
-            SELECT 1 FROM friends
-            WHERE (friends.user1_id = ? AND friends.user2_id = users.id)
-               OR (friends.user2_id = ? AND friends.user1_id = users.id)
-        )
-        AND NOT EXISTS (
-            SELECT 1 FROM friend_requests
-            WHERE friend_requests.status = 'pending'
-            AND ((friend_requests.sender_id = ? AND friend_requests.receiver_id = users.id)
-              OR (friend_requests.receiver_id = ? AND friend_requests.sender_id = users.id))
-        )
-        ORDER BY users.username
-    """, (current_user, current_user, current_user, current_user, current_user)).fetchall()
+        WHERE is_developer=1
+        AND is_active=1
+        AND id!=?
+        ORDER BY username
+        """,
+        (current_user,)
+    ).fetchall()
 
     # =========================
     # FRIENDS
@@ -1457,8 +1921,9 @@ def friends_hub():
                 WHERE dsa_topics.user_id = users.id
             ), 0) AS dsa_solved,
             COALESCE((
-                SELECT SUM(routines.completed)
-                FROM routines
+                SELECT SUM(task_logs.completed)
+                FROM task_logs
+                JOIN routines ON routines.id = task_logs.routine_id
                 WHERE routines.user_id = users.id
             ), 0) AS habits_completed,
             COALESCE((
@@ -1522,23 +1987,112 @@ def friends_hub():
     # ACTIVITY FEED
     # =========================
 
-    activities = conn.execute("""
-
+    routine_activity = conn.execute(
+        """
         SELECT
-            activities.*,
             users.username,
-            users.profile_image
-        FROM activities
-        JOIN users ON users.id = activities.user_id
-        WHERE activities.user_id = ?
+            users.profile_image,
+            'Routine completed' AS title,
+            routines.task_name || ' was completed for ' || task_logs.log_date AS activity,
+            task_logs.log_date AS created_at,
+            'Habit' AS kind
+        FROM task_logs
+        JOIN routines ON routines.id = task_logs.routine_id
+        JOIN users ON users.id = routines.user_id
+        WHERE task_logs.completed=1
+        AND (
+            routines.user_id=?
+            OR EXISTS (
+                SELECT 1 FROM friends
+                WHERE (friends.user1_id=? AND friends.user2_id=routines.user_id)
+                   OR (friends.user2_id=? AND friends.user1_id=routines.user_id)
+            )
+        )
+        ORDER BY task_logs.log_date DESC
+        LIMIT 8
+        """,
+        (current_user, current_user, current_user)
+    ).fetchall()
+
+    dsa_activity = conn.execute(
+        """
+        SELECT
+            users.username,
+            users.profile_image,
+            'DSA progress logged' AS title,
+            'Recorded ' || dsa_history.solved_count || ' solved problems on ' || dsa_history.log_date AS activity,
+            dsa_history.log_date AS created_at,
+            'DSA' AS kind
+        FROM dsa_history
+        JOIN users ON users.id = dsa_history.user_id
+        WHERE dsa_history.user_id=?
         OR EXISTS (
             SELECT 1 FROM friends
-            WHERE (friends.user1_id = ? AND friends.user2_id = activities.user_id)
-               OR (friends.user2_id = ? AND friends.user1_id = activities.user_id)
+            WHERE (friends.user1_id=? AND friends.user2_id=dsa_history.user_id)
+               OR (friends.user2_id=? AND friends.user1_id=dsa_history.user_id)
         )
-        ORDER BY activities.created_at DESC
-        LIMIT 10
-    """, (current_user, current_user, current_user)).fetchall()
+        ORDER BY dsa_history.log_date DESC
+        LIMIT 6
+        """,
+        (current_user, current_user, current_user)
+    ).fetchall()
+
+    challenge_activity = conn.execute(
+        """
+        SELECT
+            challenger.username,
+            challenger.profile_image,
+            'Challenge started' AS title,
+            challenger.username || ' challenged ' || challenged.username AS activity,
+            challenges.created_at,
+            'Challenge' AS kind
+        FROM challenges
+        JOIN users AS challenger ON challenger.id = challenges.challenger_id
+        JOIN users AS challenged ON challenged.id = challenges.challenged_id
+        WHERE challenges.challenger_id=? OR challenges.challenged_id=?
+        OR EXISTS (
+            SELECT 1 FROM friends
+            WHERE (friends.user1_id=? AND friends.user2_id=challenges.challenger_id)
+               OR (friends.user2_id=? AND friends.user1_id=challenges.challenger_id)
+               OR (friends.user1_id=? AND friends.user2_id=challenges.challenged_id)
+               OR (friends.user2_id=? AND friends.user1_id=challenges.challenged_id)
+        )
+        ORDER BY challenges.created_at DESC
+        LIMIT 6
+        """,
+        (current_user, current_user, current_user, current_user, current_user, current_user)
+    ).fetchall()
+
+    connection_activity = conn.execute(
+        """
+        SELECT
+            users.username,
+            users.profile_image,
+            'New connection' AS title,
+            users.username || ' joined your student circle' AS activity,
+            friends.created_at,
+            'Network' AS kind
+        FROM friends
+        JOIN users ON users.id = CASE
+            WHEN friends.user1_id=? THEN friends.user2_id
+            ELSE friends.user1_id
+        END
+        WHERE friends.user1_id=? OR friends.user2_id=?
+        ORDER BY friends.created_at DESC
+        LIMIT 6
+        """,
+        (current_user, current_user, current_user)
+    ).fetchall()
+
+    activities = sorted(
+        [
+            dict(activity)
+            for group in (routine_activity, dsa_activity, challenge_activity, connection_activity)
+            for activity in group
+        ],
+        key=lambda activity: activity["created_at"] or "",
+        reverse=True
+    )[:10]
 
     active_challenges = conn.execute(
         """
@@ -1560,7 +2114,11 @@ def friends_hub():
 
         "friends/friends_hub.html",
 
-        users=users,
+        current_user=current_user_row,
+        developer_users=developer_users,
+        search_query=search_query,
+        search_result=search_result,
+        search_notice=search_notice,
         friends=friends,
         requests=requests,
         activities=activities,
@@ -1753,39 +2311,6 @@ def remove_friend(friend_id):
     return redirect("/friends-hub")
 
 
-# @app.route("/requests")
-# def requests_page():
-
-#     if "user_id" not in session:
-#         return redirect("/login")
-
-#     conn = get_db_connection()
-
-#     requests = conn.execute(
-#         """
-#         SELECT
-#             friend_requests.id,
-#             users.username,
-#             users.profile_image
-
-#         FROM friend_requests
-
-#         JOIN users
-#         ON friend_requests.sender_id = users.id
-
-#         WHERE friend_requests.receiver_id=?
-#         AND friend_requests.status='pending'
-#         """,
-#         (session["user_id"],)
-#     ).fetchall()
-
-#     conn.close()
-
-#     return render_template(
-#         "friends/requests.html",
-#         requests=requests
-#     )
-
 def calculate_streak(user_id):
 
     conn = get_db_connection()
@@ -1856,6 +2381,50 @@ def view_profile(user_id):
         conn.close()
         return "User not found"
 
+    is_own_profile = session["user_id"] == user_id
+    is_friend = conn.execute(
+        """
+        SELECT 1 FROM friends
+        WHERE (user1_id=? AND user2_id=?) OR (user1_id=? AND user2_id=?)
+        """,
+        (session["user_id"], user_id, user_id, session["user_id"])
+    ).fetchone() is not None
+
+    if not is_own_profile and not is_friend:
+        can_preview = (
+            request.args.get("preview") == "1"
+            and (
+                session.get("last_profile_search_id") == user_id
+                or user["is_developer"]
+            )
+        )
+        if not can_preview:
+            conn.close()
+            flash("Search by exact User ID before viewing a limited profile.", "info")
+            return redirect(url_for("friends_hub"))
+
+        request_state = conn.execute(
+            """
+            SELECT sender_id, receiver_id, status
+            FROM friend_requests
+            WHERE status='pending'
+            AND ((sender_id=? AND receiver_id=?) OR (sender_id=? AND receiver_id=?))
+            """,
+            (session["user_id"], user_id, user_id, session["user_id"])
+        ).fetchone()
+        relationship = "available"
+        if request_state and request_state["sender_id"] == session["user_id"]:
+            relationship = "sent"
+        elif request_state:
+            relationship = "received"
+
+        conn.close()
+        return render_template(
+            "friends/profile_preview.html",
+            user=user,
+            relationship=relationship
+        )
+
     activities = conn.execute(
         """
         SELECT *
@@ -1884,12 +2453,15 @@ def view_profile(user_id):
     routine_stats = conn.execute(
         """
         SELECT
-            COUNT(*) AS total,
-            COALESCE(SUM(completed), 0) AS completed
-        FROM routines
-        WHERE user_id=?
+            (SELECT COUNT(*) FROM routines WHERE user_id=?) AS total,
+            COALESCE((
+                SELECT SUM(task_logs.completed)
+                FROM task_logs
+                JOIN routines ON routines.id=task_logs.routine_id
+                WHERE routines.user_id=?
+            ), 0) AS completed
         """,
-        (user_id,)
+        (user_id, user_id)
     ).fetchone()
 
     dsa_stats = conn.execute(
@@ -1926,14 +2498,6 @@ def view_profile(user_id):
         (user_id,)
     ).fetchall()
 
-    is_friend = conn.execute(
-        """
-        SELECT 1 FROM friends
-        WHERE (user1_id=? AND user2_id=?) OR (user1_id=? AND user2_id=?)
-        """,
-        (session["user_id"], user_id, user_id, session["user_id"])
-    ).fetchone() is not None
-
     conn.close()
 
     routine_total = routine_stats["total"]
@@ -1968,7 +2532,7 @@ def view_profile(user_id):
         latest_topics=latest_topics,
         streak=calculate_streak(user_id),
         social_links=social_links,
-        is_own_profile=session["user_id"] == user_id,
+        is_own_profile=is_own_profile,
         is_friend=is_friend
     )
 
@@ -2063,7 +2627,12 @@ def challenge_friend(friend_id):
             users.*,
             COALESCE((SELECT SUM(completed) FROM dsa_topics WHERE user_id=users.id), 0) AS dsa_solved,
             COALESCE((SELECT SUM(target) FROM dsa_topics WHERE user_id=users.id), 0) AS dsa_target,
-            COALESCE((SELECT SUM(completed) FROM routines WHERE user_id=users.id), 0) AS habits_completed,
+            COALESCE((
+                SELECT SUM(task_logs.completed)
+                FROM task_logs
+                JOIN routines ON routines.id=task_logs.routine_id
+                WHERE routines.user_id=users.id
+            ), 0) AS habits_completed,
             COALESCE((SELECT COUNT(*) FROM routines WHERE user_id=users.id), 0) AS habits_total,
             COALESCE((SELECT COUNT(*) FROM challenges WHERE winner_id=users.id), 0) AS wins
         FROM users
@@ -2078,7 +2647,12 @@ def challenge_friend(friend_id):
             users.*,
             COALESCE((SELECT SUM(completed) FROM dsa_topics WHERE user_id=users.id), 0) AS dsa_solved,
             COALESCE((SELECT SUM(target) FROM dsa_topics WHERE user_id=users.id), 0) AS dsa_target,
-            COALESCE((SELECT SUM(completed) FROM routines WHERE user_id=users.id), 0) AS habits_completed,
+            COALESCE((
+                SELECT SUM(task_logs.completed)
+                FROM task_logs
+                JOIN routines ON routines.id=task_logs.routine_id
+                WHERE routines.user_id=users.id
+            ), 0) AS habits_completed,
             COALESCE((SELECT COUNT(*) FROM routines WHERE user_id=users.id), 0) AS habits_total,
             COALESCE((SELECT COUNT(*) FROM challenges WHERE winner_id=users.id), 0) AS wins
         FROM users
@@ -2149,22 +2723,22 @@ def friend_profile(user_id):
 
     total_tasks = conn.execute(
         """
-        SELECT COUNT(*)
+        SELECT COUNT(*) AS total
         FROM routines
         WHERE user_id=?
         """,
         (user_id,)
-    ).fetchone()[0]
+    ).fetchone()["total"]
 
     completed_tasks = conn.execute(
         """
-        SELECT COUNT(*)
-        FROM routines
-        WHERE user_id=?
-        AND completed=1
+        SELECT COALESCE(SUM(task_logs.completed), 0) AS total
+        FROM task_logs
+        JOIN routines ON routines.id=task_logs.routine_id
+        WHERE routines.user_id=?
         """,
         (user_id,)
-    ).fetchone()[0]
+    ).fetchone()["total"]
     conn.close()
 
     if not friend:

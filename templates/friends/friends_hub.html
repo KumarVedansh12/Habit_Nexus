@@ -8,7 +8,7 @@
             <h1>Grow with people who keep showing up.</h1>
             <p>Follow real progress, compare consistency, and challenge friends using their latest HabitNexus data.</p>
         </div>
-        <a href="#discover" class="network-primary-link">Find students</a>
+        <a href="#student-search" class="network-primary-link">Find by User ID</a>
     </section>
 
     <section class="network-summary" aria-label="Network summary">
@@ -32,6 +32,7 @@
                     <div><strong>{{ request.username }}</strong><span>{{ request.college or 'Engineering student' }}</span></div>
                 </a>
                 <form method="POST" action="{{ url_for('accept_request', request_id=request.id) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="network-button network-button-primary">Accept request</button>
                 </form>
             </article>
@@ -64,10 +65,12 @@
                 </div>
                 <div class="network-card-actions">
                     <form method="POST" action="{{ url_for('challenge_friend', friend_id=friend.id) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="network-button network-button-primary">Open challenge</button>
                     </form>
                     <a href="{{ url_for('view_profile', user_id=friend.id) }}" class="network-button network-button-secondary">View profile</a>
                     <form method="POST" action="{{ url_for('remove_friend', friend_id=friend.id) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="network-text-button">Remove</button>
                     </form>
                 </div>
@@ -79,36 +82,79 @@
         {% endif %}
     </section>
 
-    <section class="network-section" id="discover">
+    <section class="network-section" id="student-search">
         <div class="network-section-heading">
-            <div><span class="network-eyebrow">Discover</span><h2>Students you can connect with</h2></div>
-            <span class="network-count">{{ users|length }}</span>
+            <div><span class="network-eyebrow">Private discovery</span><h2>Search by User ID</h2></div>
+            <span class="network-count">{{ current_user.public_id }}</span>
         </div>
 
-        {% if users %}
-        <div class="network-discover-grid">
-            {% for user in users %}
-            <article class="network-discover-card">
-                <a href="{{ url_for('view_profile', user_id=user.id) }}" class="network-person">
-                    <img src="{{ user.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt="{{ user.username }} profile picture">
-                    <div><strong>{{ user.username }}</strong><span>{{ user.branch or user.college or 'Engineering student' }}</span></div>
-                </a>
-                <p>{{ user.bio or 'Building consistent study and problem-solving habits.' }}</p>
-                <div class="network-discover-metrics">
-                    <span><strong>{{ user.dsa_solved }}</strong> DSA solved</span>
-                    <span><strong>{{ user.habits_completed }}</strong> habits done</span>
+        <div class="network-search-panel">
+            <div class="network-id-card">
+                <span>Your User ID</span>
+                <strong>{{ current_user.public_id }}</strong>
+                <p>Share this ID with classmates. Other students can find you only when they search this exact ID.</p>
+            </div>
+            <form method="GET" action="{{ url_for('friends_hub') }}" class="network-id-search">
+                <label for="student_id">Enter exact User ID</label>
+                <div>
+                    <input id="student_id" name="student_id" type="search" value="{{ search_query }}" placeholder="example: vedansh_4821" autocomplete="off">
+                    <button type="submit" class="network-button network-button-primary">Search</button>
                 </div>
+            </form>
+        </div>
+
+        {% if search_notice %}
+        <div class="network-empty"><h3>No match found</h3><p>{{ search_notice }}</p></div>
+        {% endif %}
+
+        {% if search_result %}
+        <article class="network-discover-card network-search-result">
+            <div class="network-private-profile">
+                <strong>{{ search_result.username }}</strong>
+                <span>{{ search_result.college or 'College not added' }}</span>
+            </div>
+            <p>{{ search_result.bio or 'Engineering student on HabitNexus.' }}</p>
+            <div class="network-card-actions">
+                {% if search_result.relationship == 'available' %}
+                <form method="POST" action="{{ url_for('send_request', user_id=search_result.id) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="network-button network-button-primary">Send request</button>
+                </form>
+                {% elif search_result.relationship == 'sent' %}
+                <span class="network-pill">Request sent</span>
+                {% elif search_result.relationship == 'received' %}
+                <span class="network-pill">They requested you</span>
+                {% else %}
+                <span class="network-pill">Already friends</span>
+                {% endif %}
+                <a href="{{ url_for('view_profile', user_id=search_result.id, preview=1) }}" class="network-button network-button-secondary">View limited profile</a>
+            </div>
+        </article>
+        {% endif %}
+
+        {% if developer_users %}
+        <div class="network-section-heading network-subheading">
+            <div><span class="network-eyebrow">Always visible</span><h2>Developer</h2></div>
+            <span class="network-count">{{ developer_users|length }}</span>
+        </div>
+        <div class="network-discover-grid">
+            {% for user in developer_users %}
+            <article class="network-discover-card">
+                <div class="network-private-profile">
+                    <strong>{{ user.username }}</strong>
+                    <span>{{ user.college or 'HabitNexus team' }}</span>
+                </div>
+                <p>{{ user.bio or 'Maintaining HabitNexus and reviewing platform suggestions.' }}</p>
                 <div class="network-card-actions">
                     <form method="POST" action="{{ url_for('send_request', user_id=user.id) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="network-button network-button-primary">Connect</button>
                     </form>
-                    <a href="{{ url_for('view_profile', user_id=user.id) }}" class="network-button network-button-secondary">View profile</a>
+                    <a href="{{ url_for('view_profile', user_id=user.id, preview=1) }}" class="network-button network-button-secondary">View limited profile</a>
                 </div>
             </article>
             {% endfor %}
         </div>
-        {% else %}
-        <div class="network-empty"><h3>You are all caught up</h3><p>No new students are available to connect with right now.</p></div>
         {% endif %}
     </section>
 
@@ -121,7 +167,11 @@
             {% for activity in activities %}
             <article>
                 <img src="{{ activity.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt="">
-                <div><strong>{{ activity.username }}</strong><p>{{ activity.activity }}</p><time>{{ activity.created_at }}</time></div>
+                <div>
+                    <div class="network-activity-meta"><strong>{{ activity.title }}</strong><span>{{ activity.kind }}</span></div>
+                    <p><b>{{ activity.username }}</b> — {{ activity.activity }}</p>
+                    <time>{{ activity.created_at }}</time>
+                </div>
             </article>
             {% endfor %}
         </div>

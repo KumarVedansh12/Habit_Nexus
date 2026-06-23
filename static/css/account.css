@@ -165,10 +165,25 @@
 .settings-summary img { width: 78px; height: 78px; border-radius: 20px; object-fit: cover; }
 .settings-summary h2 { margin: 11px 0 4px; font-size: 17px; }
 .settings-summary > p { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; }
-.settings-summary > div { display: flex; justify-content: space-between; margin: 18px 0; padding: 11px; border-radius: 10px; background: var(--card2); font-size: 8px; }
+.settings-summary > div { display: grid; grid-template-columns: 1fr; gap: 6px; margin: 18px 0; padding: 11px; border-radius: 10px; background: var(--card2); font-size: 8px; }
 .settings-summary > div span { color: var(--muted); }
+.settings-summary > div strong { min-width: 0; overflow-wrap: anywhere; word-break: break-word; line-height: 1.35; }
 .settings-summary > a { color: #60a5fa; font-size: 9px; font-weight: 700; text-decoration: none; }
 .security-card { border-color: rgba(248, 113, 113, .22); }
+.danger-card {
+    border-color: rgba(248, 113, 113, .28);
+    background:
+        radial-gradient(circle at top right, rgba(248, 113, 113, .09), transparent 34%),
+        var(--card);
+}
+.danger-card header span { color: #f87171; }
+.danger-card button {
+    background: linear-gradient(135deg, #dc2626, #991b1b);
+    box-shadow: 0 10px 22px rgba(220, 38, 38, .18);
+}
+.danger-card-strong {
+    border-color: rgba(239, 68, 68, .46);
+}
 
 .sidebar-group a:focus-visible,
 .sidebar-account button:focus-visible,

@@ -1,0 +1,29 @@
+{% extends "layout/base.html" %}
+
+{% block content %}
+<main class="profile-preview-page">
+    <section class="profile-preview-card">
+        <div class="profile-preview-glow"></div>
+        <span class="network-eyebrow">Limited profile preview</span>
+        <h1>{{ user.username }}</h1>
+        <p class="profile-preview-college">{{ user.college or 'College not added' }}</p>
+        <p>{{ user.bio or 'This student has not added a profile bio yet.' }}</p>
+        <div class="profile-preview-note">
+            Full profile details are visible only after both students are connected.
+        </div>
+        <div class="network-card-actions">
+            {% if relationship == 'available' %}
+            <form method="POST" action="{{ url_for('send_request', user_id=user.id) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="network-button network-button-primary">Send friend request</button>
+            </form>
+            {% elif relationship == 'sent' %}
+            <span class="network-pill">Friend request sent</span>
+            {% else %}
+            <span class="network-pill">They sent you a request</span>
+            {% endif %}
+            <a href="{{ url_for('friends_hub') }}" class="network-button network-button-secondary">Back to friends</a>
+        </div>
+    </section>
+</main>
+{% endblock %}

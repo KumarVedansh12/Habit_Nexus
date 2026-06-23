@@ -29,7 +29,7 @@
     </nav>
 
     <footer class="sidebar-account">
-        <a href="{{ url_for('profile') }}"><img src="{{ current_user.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt=""><div><strong>{{ current_user.username }}</strong><span>{{ current_user.email }}</span></div></a>
+        <a href="{{ url_for('profile') }}"><img src="{{ current_user.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt=""><div><strong>{{ current_user.username }}</strong><span>{{ current_user.public_id }}</span></div></a>
         <form method="POST" action="{{ url_for('logout') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button type="submit">Sign out</button></form>
     </footer>
 </aside>

@@ -10,10 +10,36 @@
         <div>
             <span class="dashboard-kicker">{{ today_label }}</span>
             <h1>Welcome back, {{ user.username }}.</h1>
-            <p>Keep today small, clear, and complete.</p>
+            <p>{% if is_today %}Keep today small, clear, and complete.{% else %}Review and adjust the saved routine state for this day.{% endif %}</p>
         </div>
-        <a href="{{ url_for('calendar') }}" class="dashboard-header-link">Review calendar</a>
+        <div class="dashboard-date-actions">
+            <a href="{{ url_for('dashboard', date=previous_day) }}" class="dashboard-header-link">Previous day</a>
+            {% if not is_today %}<a href="{{ url_for('dashboard') }}" class="dashboard-header-link">Today</a>{% endif %}
+            <a href="{{ url_for('dashboard', date=next_day) }}" class="dashboard-header-link">Next day</a>
+            <a href="{{ url_for('calendar') }}" class="dashboard-header-link">Review calendar</a>
+        </div>
     </header>
+
+    {% if pinned_notifications or ai_notifications %}
+    <section class="dashboard-notification-strip dashboard-enter" aria-label="Notifications">
+        {% for note in pinned_notifications %}
+        <article class="dashboard-notification-card is-pinned"><span>Developer pin</span><strong>{{ note.title }}</strong><p>{{ note.message }}</p><small>Managed by developer</small></article>
+        {% endfor %}
+        {% for note in ai_notifications %}
+        <article class="dashboard-notification-card is-ai">
+            <span>{{ note.kind }}</span>
+            <strong>{{ note.title }}</strong>
+            <p>{{ note.message }}</p>
+            <form method="POST" action="{{ url_for('dismiss_ai_notification') }}" class="notification-remove-form">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="notification_key" value="{{ note.key }}">
+                <input type="hidden" name="next" value="{{ url_for('dashboard', date=selected_date) if not is_today else url_for('dashboard') }}">
+                <button type="submit">Remove AI notification</button>
+            </form>
+        </article>
+        {% endfor %}
+    </section>
+    {% endif %}
 
     <section class="dashboard-summary-grid dashboard-enter" aria-label="Today summary">
         <article><span>Today</span><strong>{{ completed }}/{{ total }}</strong><small>{{ progress }}% of routines complete</small></article>
@@ -43,6 +69,8 @@
         <section class="dashboard-panel dashboard-enter">
             <div class="dashboard-panel-heading"><div><span class="dashboard-kicker">Daily system</span><h2>Today's routines</h2></div><small>{{ completed }} complete</small></div>
             <form action="{{ url_for('add_routine') }}" method="POST" class="dashboard-add-form">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="selected_date" value="{{ selected_date }}">
                 <input type="text" name="task" maxlength="100" placeholder="Add a clear, repeatable routine" required>
                 <button type="submit">Add routine</button>
             </form>
@@ -52,10 +80,14 @@
                 {% for routine in routines %}
                 <article class="dashboard-routine {% if routine.completed %}is-complete{% endif %}">
                     <form action="{{ url_for('toggle', id=routine.id) }}" method="POST">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="selected_date" value="{{ selected_date }}">
                         <button type="submit" class="dashboard-check" aria-label="{{ 'Mark incomplete' if routine.completed else 'Mark complete' }}">{% if routine.completed %}<span></span>{% endif %}</button>
                     </form>
-                    <div><strong>{{ routine.task_name }}</strong><span>{{ 'Completed today' if routine.completed else 'Ready when you are' }}</span></div>
+                    <div><strong>{{ routine.task_name }}</strong><span>{{ 'Completed for this day' if routine.completed else 'Not completed for this day' }}</span></div>
                     <form action="{{ url_for('delete', id=routine.id) }}" method="POST">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="selected_date" value="{{ selected_date }}">
                         <button type="submit" class="dashboard-delete">Delete</button>
                     </form>
                 </article>
@@ -86,8 +118,33 @@
     </div>
 </main>
 
+{% if ai_notifications %}
+<div class="dashboard-ai-popup" id="dashboardAiPopup" role="status" aria-live="polite">
+    <button type="button" aria-label="Close notification" id="dashboardAiClose">×</button>
+    <span>AI study coach</span>
+    <strong>{{ ai_notifications[0].title }}</strong>
+    <p>{{ ai_notifications[0].message }}</p>
+    <form method="POST" action="{{ url_for('dismiss_ai_notification') }}" class="notification-remove-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="notification_key" value="{{ ai_notifications[0].key }}">
+        <input type="hidden" name="next" value="{{ url_for('dashboard', date=selected_date) if not is_today else url_for('dashboard') }}">
+        <button type="submit">Remove for today</button>
+    </form>
+</div>
+{% endif %}
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+    const popup = document.getElementById("dashboardAiPopup");
+    const close = document.getElementById("dashboardAiClose");
+    if (popup && close) {
+        const key = "habitnexus-ai-popup-{{ selected_date }}";
+        if (sessionStorage.getItem(key)) popup.hidden = true;
+        close.addEventListener("click", function () {
+            popup.hidden = true;
+            sessionStorage.setItem(key, "closed");
+        });
+    }
     if (!window.ApexCharts) return;
     const textColor = getComputedStyle(document.body).getPropertyValue("--muted").trim() || "#94a3b8";
     const gridColor = getComputedStyle(document.body).getPropertyValue("--border").trim() || "#334155";

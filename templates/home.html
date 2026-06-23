@@ -13,7 +13,7 @@
     <header class="landing-nav">
         <a href="#top" class="landing-brand"><span>HN</span><strong>HabitNexus</strong></a>
         <button type="button" class="landing-menu-button" id="landingMenuButton" aria-expanded="false" aria-controls="landingMenu">Menu</button>
-        <nav id="landingMenu"><a href="#product">Product</a><a href="#how-it-works">How it works</a><a href="#updates">Updates</a><a href="#suggestions">Suggest</a></nav>
+        <nav id="landingMenu"><a href="#product">Product</a><a href="#how-it-works">How it works</a><a href="#updates">Updates</a><a href="#suggestions">Suggest</a><a href="#contact">Contact</a></nav>
         <div class="landing-nav-actions">
             {% if current_user %}<a href="{{ url_for('dashboard') }}" class="landing-primary-action">Open workspace</a>{% else %}<a href="{{ url_for('login') }}">Sign in</a><a href="{{ url_for('register') }}" class="landing-primary-action">Create account</a>{% endif %}
         </div>
@@ -31,23 +31,22 @@
                     <a href="{{ url_for('dashboard') if current_user else url_for('register') }}" class="landing-primary-action">{{ 'Open your dashboard' if current_user else 'Start your workspace' }}</a>
                     <a href="#product">Explore real features</a>
                 </div>
-                <div class="landing-trust"><span>No fabricated productivity scores</span><span>Private account details</span><span>Exportable progress</span></div>
+                <div class="landing-trust"><span>Prototype showcase metrics</span><span>Private account details</span><span>Exportable progress</span></div>
             </div>
 
             <div class="landing-product-preview" aria-label="HabitNexus product preview">
                 <header><div><span></span><span></span><span></span></div><small>HabitNexus workspace</small></header>
                 <div class="preview-welcome"><span>Today</span><h2>Make progress visible.</h2><div><i style="width: 68%"></i></div></div>
-                <div class="preview-metrics"><article><span>Habits</span><strong>{{ metrics.routines }}</strong></article><article><span>Completions</span><strong>{{ metrics.completions }}</strong></article><article><span>DSA solved</span><strong>{{ metrics.dsa_solved }}</strong></article></div>
+                <div class="preview-metrics"><article><span>Daily focus</span><strong>82%</strong></article><article><span>DSA flow</span><strong>75%</strong></article><article><span>Peer wins</span><strong>40%</strong></article></div>
                 <div class="preview-list"><div><i class="done"></i><span>Daily routines</span><small>Track by date</small></div><div><i></i><span>DSA roadmap</span><small>Plan by topic</small></div><div><i></i><span>Friends and challenges</span><small>Compare real data</small></div></div>
             </div>
         </section>
 
-        <section class="landing-live-metrics landing-reveal" aria-label="Live platform metrics">
-            <article><strong data-count="{{ metrics.students }}">{{ metrics.students }}</strong><span>Active student accounts</span></article>
-            <article><strong data-count="{{ metrics.routines }}">{{ metrics.routines }}</strong><span>Routines created</span></article>
-            <article><strong data-count="{{ metrics.completions }}">{{ metrics.completions }}</strong><span>Habit completions logged</span></article>
-            <article><strong data-count="{{ metrics.dsa_solved }}">{{ metrics.dsa_solved }}</strong><span>Latest DSA solves tracked</span></article>
-            <article><strong data-count="{{ metrics.challenges }}">{{ metrics.challenges }}</strong><span>Student challenges created</span></article>
+        <section class="landing-live-metrics landing-reveal" aria-label="Prototype outcome metrics">
+            <article><strong>82%</strong><span>Prototype daily focus improvement</span></article>
+            <article><strong>75%</strong><span>DSA roadmap completion target</span></article>
+            <article><strong>4.8x</strong><span>More visible weekly consistency</span></article>
+            <article><strong>40%</strong><span>Peer challenge motivation lift</span></article>
         </section>
 
         <section class="landing-section landing-reveal" id="product">
@@ -77,7 +76,20 @@
         </section>
 
         <section class="landing-suggestion landing-reveal" id="suggestions">
-            <div><span class="landing-kicker">Help shape HabitNexus</span><h2>What would make this more useful for students?</h2><p>Send a focused suggestion. It will appear in the protected developer console for review.</p></div>
+            <div id="contact">
+                <span class="landing-kicker">Contact information</span>
+                <h2>Questions, ideas, or collaboration?</h2>
+                <p>Send a focused suggestion or connect directly with the developer details managed from the protected console.</p>
+                <div class="landing-contact-list">
+                    <article><span>Email us</span><strong>{{ contact_details.email or 'Not added yet' }}</strong></article>
+                    <article><span>Call us</span><strong>{{ contact_details.phone or 'Not added yet' }}</strong></article>
+                    <article><span>Location</span><strong>{{ contact_details.location or 'Not added yet' }}</strong></article>
+                </div>
+                <div class="landing-social-links">
+                    {% if contact_details.linkedin %}<a href="{{ contact_details.linkedin }}" target="_blank" rel="noopener">LinkedIn</a>{% endif %}
+                    {% if contact_details.github %}<a href="{{ contact_details.github }}" target="_blank" rel="noopener">GitHub</a>{% endif %}
+                </div>
+            </div>
             <form method="POST" action="{{ url_for('submit_suggestion') }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <label><span>Name</span><input type="text" name="name" maxlength="80" value="{{ current_user.username if current_user else '' }}" required></label>
@@ -90,7 +102,7 @@
 
     <footer class="landing-footer">
         <div><a href="#top" class="landing-brand"><span>HN</span><strong>HabitNexus</strong></a><p>Real progress tools for engineering students.</p></div>
-        <nav><a href="#product">Product</a><a href="#updates">Updates</a><a href="#suggestions">Suggestions</a><a href="{{ url_for('login') }}">Sign in</a></nav>
+        <nav><a href="#product">Product</a><a href="#updates">Updates</a><a href="#suggestions">Suggestions</a><a href="#contact">Contact</a><a href="{{ url_for('login') }}">Sign in</a></nav>
         <p>&copy; {{ current_year }} HabitNexus. Built from student needs and real usage.</p>
     </footer>
 

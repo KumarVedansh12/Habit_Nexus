@@ -1,23 +1,68 @@
 {% extends "layout/base.html" %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
 {% block content %}
+<main class="notifications-page">
+    <header class="dashboard-header dashboard-enter">
+        <div>
+            <span class="dashboard-kicker">Notification center</span>
+            <h1>Updates that help you act.</h1>
+            <p>Developer pins stay visible here, and your AI coach highlights pending work for today.</p>
+        </div>
+        <div class="dashboard-date-actions">
+            {% if notifications %}
+            <form method="POST" action="{{ url_for('clear_notifications') }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="dashboard-header-link dashboard-clear-button">Clear account notifications</button>
+            </form>
+            {% endif %}
+            <a href="{{ url_for('dashboard') }}" class="dashboard-header-link">Back to dashboard</a>
+        </div>
+    </header>
 
-<h1>
-    Notifications 🔔
-</h1>
+    <section class="notification-grid">
+        {% for note in pinned_notifications %}
+        <article class="dashboard-notification-card is-pinned">
+            <span>Developer pin</span>
+            <strong>{{ note.title }}</strong>
+            <p>{{ note.message }}</p>
+            <small>{{ note.created_at }} · Managed by developer</small>
+        </article>
+        {% endfor %}
 
-<div class="leaderboard">
+        {% for note in ai_notifications %}
+        <article class="dashboard-notification-card is-ai">
+            <span>{{ note.kind }}</span>
+            <strong>{{ note.title }}</strong>
+            <p>{{ note.message }}</p>
+            <form method="POST" action="{{ url_for('dismiss_ai_notification') }}" class="notification-remove-form">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="notification_key" value="{{ note.key }}">
+                <input type="hidden" name="next" value="{{ url_for('notifications') }}">
+                <button type="submit">Remove AI notification</button>
+            </form>
+        </article>
+        {% endfor %}
 
-    {% for note in notifications %}
+        {% for note in notifications %}
+        <article class="dashboard-notification-card">
+            <span>Account</span>
+            <strong>Notification</strong>
+            <p>{{ note.message }}</p>
+            <small>{{ note.created_at }}</small>
+            <form method="POST" action="{{ url_for('delete_notification', notification_id=note.id) }}" class="notification-remove-form">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button type="submit">Remove</button>
+            </form>
+        </article>
+        {% endfor %}
+    </section>
 
-    <div class="leader-card">
-
-        {{ note.message }}
-
-    </div>
-
-    {% endfor %}
-
-</div>
-
+    {% if not pinned_notifications and not ai_notifications and not notifications %}
+    <div class="dashboard-empty"><strong>No notifications yet</strong><span>Developer pins and routine reminders will appear here.</span></div>
+    {% endif %}
+</main>
 {% endblock %}

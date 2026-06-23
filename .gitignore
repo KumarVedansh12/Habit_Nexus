@@ -1,8 +1,8 @@
-```gitignore
 venv/
 __pycache__/
 *.pyc
-database.db
-.env
 .DS_Store
-```
+.env
+
+# Local development database. Use PostgreSQL DATABASE_URL in production.
+database.db

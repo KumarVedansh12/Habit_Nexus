@@ -9,7 +9,7 @@
         <a href="{{ url_for('home') }}" target="_blank" rel="noopener">Open landing page</a>
     </header>
 
-    <nav class="developer-section-nav"><a href="#overview">Overview</a><a href="#users">Users</a><a href="#suggestions">Suggestions</a><a href="#content">Landing content</a></nav>
+    <nav class="developer-section-nav"><a href="#overview">Overview</a><a href="#users">Users</a><a href="#pins">Pinned notifications</a><a href="#contact">Contact</a><a href="#suggestions">Suggestions</a><a href="#content">Landing content</a></nav>
 
     <section class="developer-metrics" id="overview" aria-label="Platform metrics">
         <article><span>Total users</span><strong>{{ metrics.users }}</strong><small>{{ metrics.active_users }} active accounts</small></article>
@@ -31,8 +31,8 @@
                 <thead><tr><th>User</th><th>Joined</th><th>Last login</th><th>Routines</th><th>DSA</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody>
                     {% for user in users %}
-                    <tr data-user-search="{{ (user.username + ' ' + user.email)|lower }}">
-                        <td><div class="developer-user"><img src="{{ user.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt=""><div><strong>{{ user.username }}</strong><span>{{ user.email }}</span></div>{% if user.is_developer %}<b>Developer</b>{% endif %}</div></td>
+                    <tr data-user-search="{{ (user.username + ' ' + user.email + ' ' + (user.public_id or ''))|lower }}">
+                        <td><div class="developer-user"><img src="{{ user.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt=""><div><strong>{{ user.username }}</strong><span>{{ user.public_id }}</span></div>{% if user.is_developer %}<b>Developer</b>{% endif %}</div></td>
                         <td>{{ user.created_at[:10] if user.created_at else 'Unknown' }}</td>
                         <td>{{ user.last_login_at[:10] if user.last_login_at else 'Never' }}</td>
                         <td>{{ user.routines }}</td><td>{{ user.dsa_solved }}</td>
@@ -45,10 +45,78 @@
         </div>
     </section>
 
+    <section class="developer-content-layout" id="pins">
+        <form method="POST" action="{{ url_for('developer_add_notification') }}" class="developer-panel developer-content-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <header><div><span>Notification broadcast</span><h2>New pinned notification</h2><p>Published pins appear on every student dashboard and notification center.</p></div></header>
+            <label><span>Title</span><input type="text" name="title" maxlength="100" placeholder="Maintenance, challenge week, new feature..." required></label>
+            <label><span>Message</span><textarea name="message" maxlength="600" placeholder="Write a concise announcement students should see." required></textarea></label>
+            <button type="submit" class="developer-primary-button">Publish pinned notification</button>
+        </form>
+
+        <section class="developer-panel">
+            <header><div><span>Managed pins</span><h2>Pinned notifications</h2><p>Only active pins appear to students.</p></div></header>
+            {% if pinned_notifications %}
+            <div class="developer-content-list">
+                {% for note in pinned_notifications %}
+                <details>
+                    <summary><div><strong>{{ note.title }}</strong><span>{{ 'Pinned' if note.is_pinned else 'Hidden' }} / {{ note.created_at }}</span></div><b>Edit</b></summary>
+                    <form method="POST" action="{{ url_for('developer_update_notification', notification_id=note.id) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <label><span>Title</span><input type="text" name="title" maxlength="100" value="{{ note.title }}" required></label>
+                        <label><span>Message</span><textarea name="message" maxlength="600" required>{{ note.message }}</textarea></label>
+                        <button type="submit">Save notification</button>
+                    </form>
+                    <div class="developer-inline-actions">
+                        <form method="POST" action="{{ url_for('developer_toggle_notification', notification_id=note.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button type="submit" class="developer-toggle-button">{{ 'Remove pin' if note.is_pinned else 'Pin again' }}</button></form>
+                        <form method="POST" action="{{ url_for('developer_delete_notification', notification_id=note.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button type="submit" class="developer-danger-button">Delete permanently</button></form>
+                    </div>
+                </details>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="developer-empty">No pinned notifications yet.</div>
+            {% endif %}
+        </section>
+    </section>
+
+    <section class="developer-panel" id="contact">
+        <header><div><span>Landing contact</span><h2>Contact details</h2><p>These values appear on the public landing page beside the suggestion form.</p></div></header>
+        <form method="POST" action="{{ url_for('developer_update_contact') }}" class="developer-content-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <div class="developer-field-grid">
+                <label><span>Email</span><input type="email" name="email" maxlength="150" value="{{ contact_details.email }}"></label>
+                <label><span>Phone</span><input type="text" name="phone" maxlength="60" value="{{ contact_details.phone }}"></label>
+                <label><span>Location</span><input type="text" name="location" maxlength="180" value="{{ contact_details.location }}"></label>
+                <label><span>LinkedIn URL</span><input type="url" name="linkedin" maxlength="300" value="{{ contact_details.linkedin }}"></label>
+                <label><span>GitHub URL</span><input type="url" name="github" maxlength="300" value="{{ contact_details.github }}"></label>
+            </div>
+            <button type="submit" class="developer-primary-button">Save contact details</button>
+        </form>
+    </section>
+
     <section class="developer-panel" id="suggestions">
         <header><div><span>Product feedback</span><h2>Suggestions</h2><p>Review ideas submitted from the public landing page.</p></div></header>
         {% if suggestions %}<div class="developer-suggestion-list">
-            {% for suggestion in suggestions %}<article><div class="suggestion-meta"><div><strong>{{ suggestion.name }}</strong><span>{{ suggestion.email or 'No email' }} / {{ suggestion.created_at }}</span></div><span class="developer-status suggestion-{{ suggestion.status }}">{{ suggestion.status|title }}</span></div><p>{{ suggestion.message }}</p><form method="POST" action="{{ url_for('developer_suggestion_status', suggestion_id=suggestion.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><select name="status" aria-label="Suggestion status"><option value="new" {% if suggestion.status == 'new' %}selected{% endif %}>New</option><option value="reviewed" {% if suggestion.status == 'reviewed' %}selected{% endif %}>Reviewed</option><option value="resolved" {% if suggestion.status == 'resolved' %}selected{% endif %}>Resolved</option></select><button type="submit">Update status</button></form></article>{% endfor %}
+            {% for suggestion in suggestions %}
+            <article>
+                <div class="suggestion-meta"><div><strong>{{ suggestion.name }}</strong><span>{{ suggestion.email or 'No email' }} / {{ suggestion.created_at }}</span></div><span class="developer-status suggestion-{{ suggestion.status }}">{{ suggestion.status|title }}</span></div>
+                <p>{{ suggestion.message }}</p>
+                <div class="developer-inline-actions">
+                    <form method="POST" action="{{ url_for('developer_suggestion_status', suggestion_id=suggestion.id) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <select name="status" aria-label="Suggestion status"><option value="new" {% if suggestion.status == 'new' %}selected{% endif %}>New</option><option value="reviewed" {% if suggestion.status == 'reviewed' %}selected{% endif %}>Reviewed</option><option value="resolved" {% if suggestion.status == 'resolved' %}selected{% endif %}>Resolved</option></select>
+                        <button type="submit">Update status</button>
+                    </form>
+                    {% if suggestion.status == 'resolved' %}
+                    <form method="POST" action="{{ url_for('developer_delete_suggestion', suggestion_id=suggestion.id) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="developer-danger-button">Remove resolved</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </article>
+            {% endfor %}
         </div>{% else %}<div class="developer-empty">No suggestions have been submitted.</div>{% endif %}
     </section>
 

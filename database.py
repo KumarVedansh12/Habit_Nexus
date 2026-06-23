@@ -1,231 +1,166 @@
-import sqlite3
+import os
+import re
 import secrets
+import sqlite3
+import warnings
+from urllib.parse import urlparse
 
-def get_db_connection():
-    conn = sqlite3.connect("database.db")
-    conn.row_factory = sqlite3.Row
-    return conn
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+except ImportError:  # PostgreSQL is optional unless DATABASE_URL is configured.
+    psycopg2 = None
+    RealDictCursor = None
 
-def init_db():
 
-    conn = get_db_connection()
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+SQLITE_DATABASE = os.environ.get("SQLITE_DATABASE", "database.db")
+PLACEHOLDER_DATABASE_HOSTS = {"host", "your-host", "postgres-host", "db-host"}
 
-    # USERS
+TABLE_NAMES = (
+    "users",
+    "routines",
+    "task_logs",
+    "friend_requests",
+    "activities",
+    "friends",
+    "notifications",
+    "notification_dismissals",
+    "dsa_profiles",
+    "dsa_topics",
+    "pending_topics",
+    "dsa_history",
+    "challenges",
+    "landing_content",
+    "landing_contact",
+    "developer_notifications",
+    "suggestions",
+)
 
-    conn.execute("""
+SCHEMA_STATEMENTS = (
+    """
     CREATE TABLE IF NOT EXISTS users(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         username TEXT UNIQUE NOT NULL,
-
         email TEXT UNIQUE NOT NULL,
-
         password TEXT NOT NULL,
-                
         profile_image TEXT,
-
         college TEXT,
-
         branch TEXT,
-
         year TEXT,
-
         bio TEXT,
-
         github TEXT,
-
         linkedin TEXT,
-
         leetcode TEXT,
-
         is_developer INTEGER DEFAULT 0,
-
         is_active INTEGER DEFAULT 1,
-
         created_at TEXT,
-
         last_login_at TEXT,
-
         public_id TEXT UNIQUE
-
     )
-    """)
-
-    # ROUTINES
-
-    conn.execute("""
+    """,
+    """
     CREATE TABLE IF NOT EXISTS routines(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         user_id INTEGER NOT NULL,
-
         task_name TEXT NOT NULL,
-
         completed INTEGER DEFAULT 0
     )
-    """)
-
-    # TASK LOGS
-
-    conn.execute("""
+    """,
+    """
     CREATE TABLE IF NOT EXISTS task_logs(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         routine_id INTEGER,
-
         log_date TEXT,
-
         completed INTEGER DEFAULT 0
     )
-    """)
-
-    # FRIEND REQUESTS
-
-    conn.execute("""
+    """,
+    """
     CREATE TABLE IF NOT EXISTS friend_requests(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         sender_id INTEGER,
-
         receiver_id INTEGER,
-
         status TEXT DEFAULT 'pending',
-                 
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
-    """)
-
-    #Activity_feed
-
-    conn.execute("""
-
+    """,
+    """
     CREATE TABLE IF NOT EXISTS activities (
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         user_id INTEGER,
-
         activity TEXT,
-
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
-
-    """)
-
-
-    # FRIENDS
-
-    conn.execute("""
+    """,
+    """
     CREATE TABLE IF NOT EXISTS friends(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         user1_id INTEGER,
-
         user2_id INTEGER,
-                
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
-    """)
-
-    # NOTIFICATIONS
-
-    conn.execute("""
+    """,
+    """
     CREATE TABLE IF NOT EXISTS notifications(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         user_id INTEGER,
-
         message TEXT,
-
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
-    """)
-    # DSA PROFILE
-
-    conn.execute("""
-    CREATE TABLE IF NOT EXISTS dsa_profiles(
-
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS notification_dismissals(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
+        user_id INTEGER NOT NULL,
+        notification_key TEXT NOT NULL,
+        dismissed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, notification_key)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS dsa_profiles(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
-
         leetcode_username TEXT,
-
         cached_data TEXT,
-
         last_sync TEXT
     )
-    """)
-
-
-    # DSA TOPICS
-
-    conn.execute("""
+    """,
+    """
     CREATE TABLE IF NOT EXISTS dsa_topics(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         user_id INTEGER,
-
         topic_name TEXT,
-
         completed INTEGER DEFAULT 0,
-
         target INTEGER DEFAULT 0
     )
-    """)
-
-    # PENDING TOPICS
-
-    conn.execute("""
+    """,
+    """
     CREATE TABLE IF NOT EXISTS pending_topics(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         user_id INTEGER,
-
         topic_name TEXT
     )
-    """)
-    conn.execute("""
+    """,
+    """
     CREATE TABLE IF NOT EXISTS dsa_history(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         user_id INTEGER,
-
         solved_count INTEGER,
-
         log_date TEXT
     )
-    """)
-    # CHALLENGES TABLE
-
-    conn.execute("""
+    """,
+    """
     CREATE TABLE IF NOT EXISTS challenges (
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         challenger_id INTEGER NOT NULL,
-
         challenged_id INTEGER NOT NULL,
-
         status TEXT DEFAULT 'pending',
-
         winner_id INTEGER,
-
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-
     )
-    """)
-
-    conn.execute("""
+    """,
+    """
     CREATE TABLE IF NOT EXISTS landing_content (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
@@ -237,9 +172,8 @@ def init_db():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
-    """)
-
-    conn.execute("""
+    """,
+    """
     CREATE TABLE IF NOT EXISTS suggestions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
@@ -249,24 +183,152 @@ def init_db():
         status TEXT DEFAULT 'new',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
-    """)
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS landing_contact (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        contact_key TEXT UNIQUE NOT NULL,
+        contact_value TEXT,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS developer_notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        is_pinned INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
+)
 
-    user_columns = {
-        row["name"]
-        for row in conn.execute("PRAGMA table_info(users)").fetchall()
-    }
+
+class PostgresCursor:
+    def __init__(self, cursor):
+        self.cursor = cursor
+
+    def fetchone(self):
+        return self.cursor.fetchone()
+
+    def fetchall(self):
+        return self.cursor.fetchall()
+
+
+class PostgresConnection:
+    def __init__(self, connection):
+        self.connection = connection
+
+    def execute(self, sql, params=None):
+        cursor = self.connection.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(to_postgres_sql(sql), params or ())
+        return PostgresCursor(cursor)
+
+    def commit(self):
+        self.connection.commit()
+
+    def rollback(self):
+        self.connection.rollback()
+
+    def close(self):
+        self.connection.close()
+
+
+def is_placeholder_database_url(database_url):
+    if not database_url:
+        return False
+    parsed = urlparse(database_url)
+    return parsed.hostname in PLACEHOLDER_DATABASE_HOSTS
+
+
+def using_postgres():
+    return bool(DATABASE_URL) and not is_placeholder_database_url(DATABASE_URL)
+
+
+def get_db_connection():
+    if DATABASE_URL and is_placeholder_database_url(DATABASE_URL):
+        warnings.warn(
+            "DATABASE_URL is a placeholder, so HabitNexus is using local SQLite. "
+            "Set DATABASE_URL to a real PostgreSQL connection string for production.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    if using_postgres():
+        if psycopg2 is None:
+            raise RuntimeError("DATABASE_URL is set, but psycopg2-binary is not installed.")
+        kwargs = {}
+        if os.environ.get("DATABASE_SSLMODE"):
+            kwargs["sslmode"] = os.environ["DATABASE_SSLMODE"]
+        connection = psycopg2.connect(DATABASE_URL, **kwargs)
+        return PostgresConnection(connection)
+
+    conn = sqlite3.connect(SQLITE_DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def to_postgres_sql(sql):
+    sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+    sql = sql.replace("TEXT DEFAULT CURRENT_TIMESTAMP", "TEXT DEFAULT CURRENT_TIMESTAMP::TEXT")
+    return sql.replace("?", "%s")
+
+
+def public_id_seed(username):
+    seed = re.sub(r"[^a-z0-9]+", "_", username.strip().lower())
+    seed = seed.strip("_") or "student"
+    return seed[:18]
+
+
+def generate_public_id(existing_public_ids, username):
+    seed = public_id_seed(username)
+    public_id = None
+    while not public_id or public_id in existing_public_ids:
+        public_id = f"{seed}_{secrets.randbelow(9000) + 1000}"
+    existing_public_ids.add(public_id)
+    return public_id
+
+
+def get_table_columns(conn, table_name):
+    if using_postgres():
+        rows = conn.execute(
+            """
+            SELECT column_name AS name
+            FROM information_schema.columns
+            WHERE table_schema='public' AND table_name=?
+            """,
+            (table_name,)
+        ).fetchall()
+        return {row["name"] for row in rows}
+
+    rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    return {row["name"] for row in rows}
+
+
+def init_db():
+    conn = get_db_connection()
+
+    for statement in SCHEMA_STATEMENTS:
+        conn.execute(statement)
+
+    user_columns = get_table_columns(conn, "users")
     user_migrations = {
         "is_developer": "INTEGER DEFAULT 0",
         "is_active": "INTEGER DEFAULT 1",
         "created_at": "TEXT",
         "last_login_at": "TEXT",
-        "public_id": "TEXT"
+        "public_id": "TEXT",
     }
     for column, definition in user_migrations.items():
         if column not in user_columns:
-            conn.execute(
-                f"ALTER TABLE users ADD COLUMN {column} {definition}"
-            )
+            conn.execute(f"ALTER TABLE users ADD COLUMN {column} {definition}")
+
+    friends_columns = get_table_columns(conn, "friends")
+    if "created_at" not in friends_columns:
+        conn.execute(
+            "ALTER TABLE friends ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        )
 
     conn.execute(
         "UPDATE users SET created_at=COALESCE(created_at, CURRENT_TIMESTAMP)"
@@ -275,28 +337,31 @@ def init_db():
     existing_public_ids = {
         row["public_id"]
         for row in conn.execute(
-            "SELECT public_id FROM users WHERE public_id IS NOT NULL"
+            """
+            SELECT public_id FROM users
+            WHERE public_id IS NOT NULL
+            AND public_id!=''
+            AND public_id NOT LIKE 'HN-%'
+            """
         ).fetchall()
     }
-    users_without_public_id = conn.execute(
-        "SELECT id FROM users WHERE public_id IS NULL OR public_id=''"
+    users_needing_public_id = conn.execute(
+        """
+        SELECT id, username
+        FROM users
+        WHERE public_id IS NULL OR public_id='' OR public_id LIKE 'HN-%'
+        """
     ).fetchall()
-    for user in users_without_public_id:
-        public_id = None
-        while not public_id or public_id in existing_public_ids:
-            public_id = f"HN-{secrets.token_hex(4).upper()}"
+    for user in users_needing_public_id:
+        public_id = generate_public_id(existing_public_ids, user["username"])
         conn.execute(
             "UPDATE users SET public_id=? WHERE id=?",
             (public_id, user["id"])
         )
-        existing_public_ids.add(public_id)
 
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_public_id ON users(public_id)"
     )
 
-
-
     conn.commit()
-
     conn.close()

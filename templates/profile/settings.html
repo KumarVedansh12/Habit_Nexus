@@ -10,8 +10,8 @@
         <aside class="settings-summary">
             <img src="{{ user.profile_image or url_for('static', filename='images/default-avatar.svg') }}" alt="">
             <h2>{{ user.username }}</h2>
-            <p>{{ user.email }}</p>
-            <div><span>Account ID</span><strong>#{{ user.id }}</strong></div>
+            <p>{{ user.public_id }}</p>
+            <div><span>Private email</span><strong>{{ user.email }}</strong></div>
             <a href="{{ url_for('profile') }}">Edit public profile</a>
         </aside>
 
@@ -36,6 +36,24 @@
                     <label><span>Confirm new password</span><input type="password" name="confirm_password" minlength="8" autocomplete="new-password" required></label>
                 </div>
                 <button type="submit">Change password</button>
+            </form>
+
+            <form method="POST" class="account-form-card danger-card">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="delete_data">
+                <header><span>Data reset</span><h2>Delete all app data</h2><p>This removes routines, DSA history, friends, requests, activities, notifications, and challenges while keeping your login/profile.</p></header>
+                <label><span>Current password</span><input type="password" name="current_password" autocomplete="current-password" required></label>
+                <label><span>Type DELETE DATA</span><input type="text" name="confirmation" autocomplete="off" required></label>
+                <button type="submit">Delete my app data</button>
+            </form>
+
+            <form method="POST" class="account-form-card danger-card danger-card-strong">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="delete_account">
+                <header><span>Profile deletion</span><h2>Delete account and profile</h2><p>This permanently removes your user account, profile, friends, requests, and all HabitNexus data.</p></header>
+                <label><span>Current password</span><input type="password" name="current_password" autocomplete="current-password" required></label>
+                <label><span>Type DELETE ACCOUNT</span><input type="text" name="confirmation" autocomplete="off" required></label>
+                <button type="submit">Delete my account</button>
             </form>
         </div>
     </div>

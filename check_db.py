@@ -1,29 +1,26 @@
-# import sqlite3
+from database import get_db_connection, init_db, using_postgres
 
-# conn = sqlite3.connect("database.db")
 
-# print("\nUSERS")
-# for row in conn.execute("SELECT * FROM users"):
-#     print(row)
+init_db()
+conn = get_db_connection()
 
-# print("\nFRIEND REQUESTS")
-# for row in conn.execute("SELECT * FROM friend_requests"):
-#     print(row)
+print("Backend:", "PostgreSQL" if using_postgres() else "SQLite")
+print("\nUSERS")
+for row in conn.execute(
+    """
+    SELECT id, username, public_id, profile_image, is_developer, is_active
+    FROM users
+    ORDER BY id
+    """
+).fetchall():
+    print(dict(row))
 
-# print("\nFRIENDS")
-# for row in conn.execute("SELECT * FROM friends"):
-#     print(row)
+print("\nFRIEND REQUESTS")
+for row in conn.execute("SELECT * FROM friend_requests ORDER BY id").fetchall():
+    print(dict(row))
 
-# conn.close()
-
-import sqlite3
-
-conn = sqlite3.connect("database.db")
-
-for row in conn.execute("""
-SELECT id, username, profile_image
-FROM users
-"""):
-    print(row)
+print("\nFRIENDS")
+for row in conn.execute("SELECT * FROM friends ORDER BY id").fetchall():
+    print(dict(row))
 
 conn.close()
