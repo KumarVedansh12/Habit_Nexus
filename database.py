@@ -222,8 +222,13 @@ class PostgresConnection:
 
     def execute(self, sql, params=None):
         cursor = self.connection.cursor(cursor_factory=RealDictCursor)
-        cursor.execute(to_postgres_sql(sql), params or ())
-        return PostgresCursor(cursor)
+        # cursor.execute(to_postgres_sql(sql), params or ())
+        query = to_postgres_sql(sql)
+        if params is None:
+            cursor.execute(query)
+        else:
+            cursor.execute(query, params)
+            return PostgresCursor(cursor)
 
     def commit(self):
         self.connection.commit()
