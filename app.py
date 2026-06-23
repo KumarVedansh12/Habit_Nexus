@@ -163,6 +163,14 @@ def redirect_dashboard_for(day):
     return redirect(url_for("dashboard"))
 
 
+def normalize_activity_time(value):
+    if not value:
+        return ""
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
 def build_ai_notifications(pending_routines, selected_day, progress):
     if selected_day != date.today() or not pending_routines:
         return []
@@ -2176,7 +2184,7 @@ def friends_hub():
             users.profile_image,
             'New connection' AS title,
             users.username || ' joined your student circle' AS activity,
-            friends.created_at,
+            CURRENT_TIMESTAMP AS created_at,
             'Network' AS kind
         FROM friends
         JOIN users ON users.id = CASE
@@ -2184,19 +2192,23 @@ def friends_hub():
             ELSE friends.user1_id
         END
         WHERE friends.user1_id=? OR friends.user2_id=?
-        ORDER BY friends.created_at DESC
+        ORDER BY friends.id DESC
         LIMIT 6
         """,
         (current_user, current_user, current_user)
     ).fetchall()
 
+    activities = [
+        dict(activity)
+        for group in (routine_activity, dsa_activity, challenge_activity, connection_activity)
+        for activity in group
+    ]
+    for activity in activities:
+        activity["created_at"] = normalize_activity_time(activity.get("created_at"))
+
     activities = sorted(
-        [
-            dict(activity)
-            for group in (routine_activity, dsa_activity, challenge_activity, connection_activity)
-            for activity in group
-        ],
-        key=lambda activity: activity["created_at"] or "",
+        activities,
+        key=lambda activity: activity["created_at"],
         reverse=True
     )[:10]
 
@@ -2315,59 +2327,66 @@ def accept_request(request_id):
         return redirect("/login")
 
     conn = get_db_connection()
+    try:
+        request_data = conn.execute("""
 
-    request_data = conn.execute("""
+            SELECT *
+            FROM friend_requests
 
-        SELECT *
-        FROM friend_requests
-
-        WHERE id = ?
-        AND receiver_id = ?
-        AND status = 'pending'
-
-    """, (request_id, session["user_id"])).fetchone()
-
-    if request_data:
-
-        conn.execute("""
-
-            INSERT INTO friends (
-
-                user1_id,
-                user2_id
-
-            )
-
-            SELECT ?, ?
-            WHERE NOT EXISTS (
-                SELECT 1 FROM friends
-                WHERE (user1_id=? AND user2_id=?)
-                   OR (user1_id=? AND user2_id=?)
-            )
-
-        """, (
-
-            request_data["sender_id"],
-            request_data["receiver_id"],
-            request_data["sender_id"],
-            request_data["receiver_id"],
-            request_data["receiver_id"],
-            request_data["sender_id"]
-
-        ))
-
-        conn.execute("""
-
-            DELETE FROM friend_requests
             WHERE id = ?
+            AND receiver_id = ?
+            AND status = 'pending'
 
-        """, (request_id,))
+        """, (request_id, session["user_id"])).fetchone()
 
+        if request_data:
+
+            conn.execute("""
+
+                INSERT INTO friends (
+
+                    user1_id,
+                    user2_id
+
+                )
+
+                SELECT ?, ?
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM friends
+                    WHERE (user1_id=? AND user2_id=?)
+                       OR (user1_id=? AND user2_id=?)
+                )
+
+            """, (
+
+                request_data["sender_id"],
+                request_data["receiver_id"],
+                request_data["sender_id"],
+                request_data["receiver_id"],
+                request_data["receiver_id"],
+                request_data["sender_id"]
+
+            ))
+
+            conn.execute("""
+
+                DELETE FROM friend_requests
+                WHERE id = ?
+
+            """, (request_id,))
+
+            flash("Friend request accepted.", "success")
+        else:
+            flash("Friend request was already handled.", "error")
         conn.commit()
+    except Exception:
+        conn.rollback()
+        flash("Unable to accept this friend request. Please try again.", "error")
+        app.logger.exception("Failed to accept friend request %s", request_id)
+    finally:
+        conn.close()
 
-    conn.close()
-
-    return redirect("/friends-hub")
+    return redirect(url_for("friends_hub"))
 
 
 # =========================================
