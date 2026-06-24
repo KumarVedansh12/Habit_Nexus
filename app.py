@@ -1594,6 +1594,8 @@ def clear_notifications():
     )
     conn.commit()
     conn.close()
+    if wants_json_response():
+        return jsonify({"ok": True, "action": "clear", "message": "Your account notifications were cleared."})
     flash("Your account notifications were cleared.", "success")
     return redirect(url_for("notifications"))
 
@@ -1625,6 +1627,8 @@ def dismiss_ai_notification():
     flash("AI notification removed.", "success")
     if not next_url.startswith("/") or next_url.startswith("//"):
         next_url = url_for("notifications")
+    if wants_json_response():
+        return jsonify({"ok": True, "action": "dismiss-ai", "key": notification_key, "message": "AI notification removed."})
     return redirect(next_url)
 
 
@@ -1640,6 +1644,8 @@ def delete_notification(notification_id):
     )
     conn.commit()
     conn.close()
+    if wants_json_response():
+        return jsonify({"ok": True, "action": "delete-notification", "id": notification_id, "message": "Notification removed."})
     flash("Notification removed.", "success")
     return redirect(url_for("notifications"))
 @app.route(
@@ -2434,6 +2440,9 @@ def send_request(user_id):
 
     )).fetchone()
 
+    sent = False
+    message = "Request already exists or you are already connected."
+
     if target and not existing and not existing_friend:
 
         conn.execute("""
@@ -2457,8 +2466,13 @@ def send_request(user_id):
         ))
 
         conn.commit()
+        sent = True
+        message = "Friend request sent."
 
     conn.close()
+
+    if wants_json_response():
+        return jsonify({"ok": sent, "action": "send-request", "message": message})
 
     return redirect("/friends-hub")
 
@@ -2522,16 +2536,25 @@ def accept_request(request_id):
 
             """, (request_id,))
 
-            flash("Friend request accepted.", "success")
+            message = "Friend request accepted."
+            success = True
+            flash(message, "success")
         else:
-            flash("Friend request was already handled.", "error")
+            message = "Friend request was already handled."
+            success = False
+            flash(message, "error")
         conn.commit()
     except Exception:
         conn.rollback()
-        flash("Unable to accept this friend request. Please try again.", "error")
+        message = "Unable to accept this friend request. Please try again."
+        success = False
+        flash(message, "error")
         app.logger.exception("Failed to accept friend request %s", request_id)
     finally:
         conn.close()
+
+    if wants_json_response():
+        return jsonify({"ok": success, "action": "accept-request", "id": request_id, "message": message})
 
     return redirect(url_for("friends_hub"))
 
@@ -2548,7 +2571,7 @@ def reject_request(request_id):
 
     conn = get_db_connection()
 
-    conn.execute(
+    cursor = conn.execute(
         """
         DELETE FROM friend_requests
         WHERE id=?
@@ -2560,7 +2583,11 @@ def reject_request(request_id):
     conn.commit()
     conn.close()
 
-    flash("Friend request rejected.", "success")
+    message = "Friend request rejected." if cursor.rowcount else "Friend request was already handled."
+    if wants_json_response():
+        return jsonify({"ok": bool(cursor.rowcount), "action": "reject-request", "id": request_id, "message": message})
+
+    flash(message, "success")
     return redirect("/friends-hub")
 
 
@@ -2576,7 +2603,7 @@ def remove_friend(friend_id):
 
     conn = get_db_connection()
 
-    conn.execute("""
+    cursor = conn.execute("""
 
         DELETE FROM friends
 
@@ -2607,6 +2634,14 @@ def remove_friend(friend_id):
     conn.commit()
 
     conn.close()
+
+    if wants_json_response():
+        return jsonify({
+            "ok": bool(cursor.rowcount),
+            "action": "remove-friend",
+            "id": friend_id,
+            "message": "Friend removed." if cursor.rowcount else "Friend was already removed."
+        })
 
     return redirect("/friends-hub")
 
@@ -2925,6 +2960,13 @@ def challenge_friend(friend_id):
             conn.commit()
 
         conn.close()
+        if wants_json_response():
+            return jsonify({
+                "ok": True,
+                "action": "challenge",
+                "redirect_url": url_for("challenge_friend", friend_id=friend_id),
+                "message": "Opening challenge room."
+            })
         return redirect(url_for("challenge_friend", friend_id=friend_id))
 
     current_profile = conn.execute(
@@ -3533,6 +3575,27 @@ def add_dsa_topic():
 
     conn.commit()
 
+    topic = conn.execute(
+        """
+        SELECT id, topic_name, completed, target
+        FROM dsa_topics
+        WHERE user_id=? AND LOWER(topic_name)=LOWER(?)
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (user_id, topic_name)
+    ).fetchone()
+
+    if wants_json_response():
+        response = jsonify({
+            "ok": True,
+            "action": "add-topic",
+            "message": "Topic added." if not existing else "Topic already exists.",
+            "topic": dict(topic) if topic else None
+        })
+        conn.close()
+        return response
+
     conn.close()
 
     return redirect("/dsa_tracker")
@@ -3577,6 +3640,27 @@ def add_pending_topic():
         )
 
     conn.commit()
+
+    topic = conn.execute(
+        """
+        SELECT id, topic_name
+        FROM pending_topics
+        WHERE user_id=? AND LOWER(topic_name)=LOWER(?)
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (user_id, topic_name)
+    ).fetchone()
+
+    if wants_json_response():
+        response = jsonify({
+            "ok": True,
+            "action": "add-pending-topic",
+            "message": "Backlog topic added." if not existing else "Backlog topic already exists.",
+            "topic": dict(topic) if topic else None
+        })
+        conn.close()
+        return response
 
     conn.close()
 
@@ -3862,7 +3946,7 @@ def delete_dsa_topic(id):
 
     conn = get_db_connection()
 
-    conn.execute(
+    cursor = conn.execute(
         """
         DELETE FROM dsa_topics
         WHERE id = ? AND user_id = ?
@@ -3871,6 +3955,16 @@ def delete_dsa_topic(id):
     )
 
     conn.commit()
+
+    if wants_json_response():
+        response = jsonify({
+            "ok": bool(cursor.rowcount),
+            "action": "delete-topic",
+            "id": id,
+            "message": "Topic deleted." if cursor.rowcount else "Topic was already removed."
+        })
+        conn.close()
+        return response
 
     conn.close()
 
@@ -3910,6 +4004,25 @@ def update_dsa_topic(id):
 
     conn.commit()
 
+    topic = conn.execute(
+        """
+        SELECT id, topic_name, completed, target
+        FROM dsa_topics
+        WHERE id=? AND user_id=?
+        """,
+        (id, session["user_id"])
+    ).fetchone()
+
+    if wants_json_response():
+        response = jsonify({
+            "ok": topic is not None,
+            "action": "update-topic",
+            "message": "Topic progress saved." if topic else "Topic was not found.",
+            "topic": dict(topic) if topic else None
+        })
+        conn.close()
+        return response
+
     conn.close()
 
     return redirect("/dsa_tracker")
@@ -3922,12 +4035,22 @@ def delete_pending_topic(id):
 
     conn = get_db_connection()
 
-    conn.execute(
+    cursor = conn.execute(
         "DELETE FROM pending_topics WHERE id=? AND user_id=?",
         (id, session["user_id"])
     )
 
     conn.commit()
+
+    if wants_json_response():
+        response = jsonify({
+            "ok": bool(cursor.rowcount),
+            "action": "delete-pending-topic",
+            "id": id,
+            "message": "Backlog topic removed." if cursor.rowcount else "Backlog topic was already removed."
+        })
+        conn.close()
+        return response
 
     conn.close()
 

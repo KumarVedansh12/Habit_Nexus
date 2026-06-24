@@ -30,7 +30,7 @@
             <span>{{ note.kind }}</span>
             <strong>{{ note.title }}</strong>
             <p>{{ note.message }}</p>
-            <form method="POST" action="{{ url_for('dismiss_ai_notification') }}" class="notification-remove-form">
+            <form method="POST" action="{{ url_for('dismiss_ai_notification') }}" class="notification-remove-form" data-dashboard-notification-action="dismiss">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="notification_key" value="{{ note.key }}">
                 <input type="hidden" name="next" value="{{ url_for('dashboard', date=selected_date) if not is_today else url_for('dashboard') }}">
@@ -124,7 +124,7 @@
     <span>AI study coach</span>
     <strong>{{ ai_notifications[0].title }}</strong>
     <p>{{ ai_notifications[0].message }}</p>
-    <form method="POST" action="{{ url_for('dismiss_ai_notification') }}" class="notification-remove-form">
+    <form method="POST" action="{{ url_for('dismiss_ai_notification') }}" class="notification-remove-form" data-dashboard-notification-action="dismiss">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="notification_key" value="{{ ai_notifications[0].key }}">
         <input type="hidden" name="next" value="{{ url_for('dashboard', date=selected_date) if not is_today else url_for('dashboard') }}">
@@ -284,11 +284,45 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
+    async function submitDashboardNotificationForm(form) {
+        const submitButton = form.querySelector("button[type='submit']");
+        if (submitButton) submitButton.disabled = true;
+        try {
+            const response = await fetch(form.action, {
+                method: "POST",
+                body: new FormData(form),
+                headers: {
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "X-CSRF-Token": csrfInput ? csrfInput.value : ""
+                }
+            });
+            if (!response.ok) throw new Error("Request failed");
+            const data = await response.json();
+            const popupCard = form.closest("#dashboardAiPopup");
+            const stripCard = form.closest(".dashboard-notification-card");
+            if (popupCard) popupCard.remove();
+            if (stripCard) stripCard.remove();
+            showRoutineMessage(data.message || "Notification removed.", false);
+        } catch (error) {
+            showRoutineMessage("Could not remove notification. Please try again.", true);
+        } finally {
+            if (submitButton) submitButton.disabled = false;
+        }
+    }
+
     document.addEventListener("submit", function (event) {
         const form = event.target.closest("[data-routine-action]");
         if (!form) return;
         event.preventDefault();
         submitRoutineForm(form);
+    });
+
+    document.addEventListener("submit", function (event) {
+        const form = event.target.closest("[data-dashboard-notification-action]");
+        if (!form) return;
+        event.preventDefault();
+        submitDashboardNotificationForm(form);
     });
 
     if (!window.ApexCharts) return;

@@ -18,7 +18,7 @@
         <article><span>Total solved</span><strong>{{ total_solved }}</strong><small>{% if latest_sync %}Snapshot {{ latest_sync }}{% else %}No sync yet{% endif %}</small></article>
         <article><span>Solved today</span><strong>+{{ daily_solved }}</strong><small>Change since previous sync</small></article>
         <article><span>Coding streak</span><strong>{{ streak }} days</strong><small>Consecutive days with new solves</small></article>
-        <article><span>Roadmap progress</span><strong>{{ roadmap_progress }}%</strong><small>{{ mastered_topics }} of {{ topics|length }} topics mastered</small></article>
+        <article><span>Roadmap progress</span><strong data-dsa-stat="roadmap-progress">{{ roadmap_progress }}%</strong><small data-dsa-stat="roadmap-mastered">{{ mastered_topics }} of {{ topics|length }} topics mastered</small></article>
     </section>
 
     <section class="dsa-focus-card dsa-reveal">
@@ -39,7 +39,7 @@
             {% endif %}
         </div>
         <div class="dsa-focus-meter" style="--progress: {{ roadmap_progress }}">
-            <strong>{{ local_completed }}</strong><span>of {{ local_target }} roadmap problems</span>
+            <strong data-dsa-stat="local-completed">{{ local_completed }}</strong><span data-dsa-stat="local-target">of {{ local_target }} roadmap problems</span>
         </div>
     </section>
 
@@ -61,42 +61,46 @@
     <section class="dsa-panel dsa-reveal" id="roadmap">
         <div class="dsa-panel-heading">
             <div><span class="dsa-kicker">Personal plan</span><h2>Topic roadmap</h2></div>
-            <small>{{ local_completed }} / {{ local_target }} solved</small>
+            <small data-dsa-stat="panel-total">{{ local_completed }} / {{ local_target }} solved</small>
         </div>
 
-        <form action="{{ url_for('add_dsa_topic') }}" method="POST" class="dsa-add-form">
+        <p class="dsa-action-message" data-dsa-message hidden></p>
+
+        <form action="{{ url_for('add_dsa_topic') }}" method="POST" class="dsa-add-form" data-dsa-action="add-topic">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <label><span>Topic</span><input type="text" name="topic_name" maxlength="80" placeholder="e.g. Dynamic Programming" required></label>
             <label><span>Already solved</span><input type="number" name="completed" min="0" value="0" required></label>
             <label><span>Target</span><input type="number" name="target" min="1" value="20" required></label>
             <button type="submit" class="dsa-button dsa-button-primary">Add topic</button>
         </form>
 
-        {% if topics %}
-        <div class="dsa-topic-list">
+        <div class="dsa-topic-list" data-dsa-topic-list {% if not topics %}hidden{% endif %}>
+            {% if topics %}
             {% for topic in topics %}
             {% set topic_progress = [((topic.completed / topic.target) * 100)|round|int if topic.target else 0, 100]|min %}
-            <article class="dsa-topic-row" id="topic-{{ topic.id }}">
+            <article class="dsa-topic-row" id="topic-{{ topic.id }}" data-dsa-topic-id="{{ topic.id }}" data-dsa-completed="{{ topic.completed }}" data-dsa-target="{{ topic.target }}">
                 <div class="dsa-topic-overview">
-                    <div><h3>{{ topic.topic_name }}</h3><span>{{ topic.completed }} of {{ topic.target }} problems</span></div>
-                    <strong>{{ topic_progress }}%</strong>
+                    <div><h3>{{ topic.topic_name }}</h3><span data-dsa-topic-count>{{ topic.completed }} of {{ topic.target }} problems</span></div>
+                    <strong data-dsa-topic-progress>{{ topic_progress }}%</strong>
                 </div>
                 <div class="dsa-progress-track"><span style="width: {{ topic_progress }}%"></span></div>
                 <div class="dsa-topic-actions">
-                    <form action="{{ url_for('update_dsa_topic', id=topic.id) }}" method="POST" class="dsa-update-form">
+                    <form action="{{ url_for('update_dsa_topic', id=topic.id) }}" method="POST" class="dsa-update-form" data-dsa-action="update-topic">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <label><span>Solved</span><input type="number" name="completed" min="0" value="{{ topic.completed }}" required></label>
                         <label><span>Target</span><input type="number" name="target" min="1" value="{{ topic.target }}" required></label>
                         <button type="submit" class="dsa-inline-button">Save progress</button>
                     </form>
-                    <form action="{{ url_for('delete_dsa_topic', id=topic.id) }}" method="POST">
+                    <form action="{{ url_for('delete_dsa_topic', id=topic.id) }}" method="POST" data-dsa-action="delete-topic">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="dsa-delete-button">Delete</button>
                     </form>
                 </div>
             </article>
             {% endfor %}
+            {% endif %}
         </div>
-        {% else %}
-        <div class="dsa-empty-state"><strong>No roadmap topics yet</strong><span>Add one topic and a target to begin.</span></div>
-        {% endif %}
+        <div class="dsa-empty-state" data-dsa-topic-empty {% if topics %}hidden{% endif %}><strong>No roadmap topics yet</strong><span>Add one topic and a target to begin.</span></div>
     </section>
 
     <div class="dsa-lower-grid">
@@ -118,19 +122,19 @@
 
         <section class="dsa-panel dsa-reveal">
             <div class="dsa-panel-heading"><div><span class="dsa-kicker">Later list</span><h2>Topic backlog</h2></div><small>{{ pending_topics|length }} topics</small></div>
-            <form action="{{ url_for('add_pending_topic') }}" method="POST" class="dsa-backlog-form">
+            <form action="{{ url_for('add_pending_topic') }}" method="POST" class="dsa-backlog-form" data-dsa-action="add-pending-topic">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <input type="text" name="topic_name" maxlength="80" placeholder="Add a topic for later" required>
                 <button type="submit" class="dsa-inline-button">Add</button>
             </form>
-            {% if pending_topics %}
-            <div class="dsa-backlog-list">
+            <div class="dsa-backlog-list" data-dsa-backlog-list {% if not pending_topics %}hidden{% endif %}>
+                {% if pending_topics %}
                 {% for topic in pending_topics %}
-                <div><span>{{ topic.topic_name }}</span><form action="{{ url_for('delete_pending_topic', id=topic.id) }}" method="POST"><button type="submit" aria-label="Remove {{ topic.topic_name }}">Remove</button></form></div>
+                <div data-dsa-pending-id="{{ topic.id }}"><span>{{ topic.topic_name }}</span><form action="{{ url_for('delete_pending_topic', id=topic.id) }}" method="POST" data-dsa-action="delete-pending-topic"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button type="submit" aria-label="Remove {{ topic.topic_name }}">Remove</button></form></div>
                 {% endfor %}
+                {% endif %}
             </div>
-            {% else %}
-            <div class="dsa-empty-state compact"><span>Your backlog is clear.</span></div>
-            {% endif %}
+            <div class="dsa-empty-state compact" data-dsa-backlog-empty {% if pending_topics %}hidden{% endif %}><span>Your backlog is clear.</span></div>
         </section>
     </div>
 
@@ -141,6 +145,7 @@
             <p>{% if sync_available %}Live public stats were loaded successfully.{% elif latest_sync %}Live sync is unavailable; the page is showing your last saved snapshot.{% else %}Add your username to populate difficulty, growth, and topic insights.{% endif %}</p>
         </div>
         <form method="POST" action="{{ url_for('save_leetcode') }}" class="dsa-sync-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <input type="text" name="leetcode_username" placeholder="LeetCode username" value="{{ profile.leetcode_username if profile else '' }}" required>
             <button type="submit" class="dsa-button dsa-button-primary">Save and sync</button>
         </form>
@@ -149,6 +154,239 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+    const message = document.querySelector("[data-dsa-message]");
+    const topicList = document.querySelector("[data-dsa-topic-list]");
+    const topicEmpty = document.querySelector("[data-dsa-topic-empty]");
+    const backlogList = document.querySelector("[data-dsa-backlog-list]");
+    const backlogEmpty = document.querySelector("[data-dsa-backlog-empty]");
+    const csrfInput = document.querySelector("input[name='_csrf_token']");
+    const updateTopicBase = "{{ url_for('update_dsa_topic', id=0) }}".replace(/0$/, "");
+    const deleteTopicBase = "{{ url_for('delete_dsa_topic', id=0) }}".replace(/0$/, "");
+    const deletePendingBase = "{{ url_for('delete_pending_topic', id=0) }}".replace(/0$/, "");
+
+    function topicProgress(topic) {
+        const completed = Math.max(parseInt(topic.completed, 10) || 0, 0);
+        const target = Math.max(parseInt(topic.target, 10) || 1, 1);
+        return Math.min(Math.round((completed / target) * 100), 100);
+    }
+
+    function setText(selector, value) {
+        const element = document.querySelector(selector);
+        if (element) element.textContent = value;
+    }
+
+    function showMessage(text, isError) {
+        if (!message || !text) return;
+        message.textContent = text;
+        message.hidden = false;
+        message.classList.toggle("is-error", Boolean(isError));
+        window.clearTimeout(showMessage.timer);
+        showMessage.timer = window.setTimeout(function () {
+            message.hidden = true;
+        }, 2600);
+    }
+
+    function hiddenInput(name, value) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = value;
+        return input;
+    }
+
+    function labeledNumber(name, labelText, value, min) {
+        const label = document.createElement("label");
+        const span = document.createElement("span");
+        const input = document.createElement("input");
+        span.textContent = labelText;
+        input.type = "number";
+        input.name = name;
+        input.min = min;
+        input.value = value;
+        input.required = true;
+        label.append(span, input);
+        return label;
+    }
+
+    function createTopicRow(topic) {
+        const progress = topicProgress(topic);
+        const row = document.createElement("article");
+        row.className = "dsa-topic-row";
+        row.id = "topic-" + topic.id;
+        row.dataset.dsaTopicId = topic.id;
+        row.dataset.dsaCompleted = topic.completed;
+        row.dataset.dsaTarget = topic.target;
+
+        const overview = document.createElement("div");
+        overview.className = "dsa-topic-overview";
+        const titleWrap = document.createElement("div");
+        const title = document.createElement("h3");
+        title.textContent = topic.topic_name;
+        const count = document.createElement("span");
+        count.dataset.dsaTopicCount = "";
+        count.textContent = topic.completed + " of " + topic.target + " problems";
+        titleWrap.append(title, count);
+        const percent = document.createElement("strong");
+        percent.dataset.dsaTopicProgress = "";
+        percent.textContent = progress + "%";
+        overview.append(titleWrap, percent);
+
+        const track = document.createElement("div");
+        track.className = "dsa-progress-track";
+        const fill = document.createElement("span");
+        fill.style.width = progress + "%";
+        track.appendChild(fill);
+
+        const actions = document.createElement("div");
+        actions.className = "dsa-topic-actions";
+        const updateForm = document.createElement("form");
+        updateForm.action = updateTopicBase + topic.id;
+        updateForm.method = "POST";
+        updateForm.className = "dsa-update-form";
+        updateForm.dataset.dsaAction = "update-topic";
+        updateForm.append(
+            hiddenInput("_csrf_token", csrfInput ? csrfInput.value : ""),
+            labeledNumber("completed", "Solved", topic.completed, "0"),
+            labeledNumber("target", "Target", topic.target, "1")
+        );
+        const saveButton = document.createElement("button");
+        saveButton.type = "submit";
+        saveButton.className = "dsa-inline-button";
+        saveButton.textContent = "Save progress";
+        updateForm.appendChild(saveButton);
+
+        const deleteForm = document.createElement("form");
+        deleteForm.action = deleteTopicBase + topic.id;
+        deleteForm.method = "POST";
+        deleteForm.dataset.dsaAction = "delete-topic";
+        deleteForm.appendChild(hiddenInput("_csrf_token", csrfInput ? csrfInput.value : ""));
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "submit";
+        deleteButton.className = "dsa-delete-button";
+        deleteButton.textContent = "Delete";
+        deleteForm.appendChild(deleteButton);
+        actions.append(updateForm, deleteForm);
+
+        row.append(overview, track, actions);
+        return row;
+    }
+
+    function createPendingRow(topic) {
+        const row = document.createElement("div");
+        row.dataset.dsaPendingId = topic.id;
+        const name = document.createElement("span");
+        name.textContent = topic.topic_name;
+        const form = document.createElement("form");
+        form.action = deletePendingBase + topic.id;
+        form.method = "POST";
+        form.dataset.dsaAction = "delete-pending-topic";
+        form.appendChild(hiddenInput("_csrf_token", csrfInput ? csrfInput.value : ""));
+        const button = document.createElement("button");
+        button.type = "submit";
+        button.setAttribute("aria-label", "Remove " + topic.topic_name);
+        button.textContent = "Remove";
+        form.appendChild(button);
+        row.append(name, form);
+        return row;
+    }
+
+    function updateTopicRow(topic) {
+        let row = document.querySelector("[data-dsa-topic-id='" + topic.id + "']");
+        if (!row) {
+            if (!topicList) return;
+            row = createTopicRow(topic);
+            topicList.prepend(row);
+        }
+        const progress = topicProgress(topic);
+        row.dataset.dsaCompleted = topic.completed;
+        row.dataset.dsaTarget = topic.target;
+        row.querySelector("[data-dsa-topic-count]").textContent = topic.completed + " of " + topic.target + " problems";
+        row.querySelector("[data-dsa-topic-progress]").textContent = progress + "%";
+        row.querySelector(".dsa-progress-track span").style.width = progress + "%";
+        const completedInput = row.querySelector("input[name='completed']");
+        const targetInput = row.querySelector("input[name='target']");
+        if (completedInput) completedInput.value = topic.completed;
+        if (targetInput) targetInput.value = topic.target;
+    }
+
+    function updateRoadmapStats() {
+        const rows = Array.from(document.querySelectorAll("[data-dsa-topic-id]"));
+        const totals = rows.reduce(function (acc, row) {
+            const completed = Math.max(parseInt(row.dataset.dsaCompleted, 10) || 0, 0);
+            const target = Math.max(parseInt(row.dataset.dsaTarget, 10) || 0, 0);
+            acc.completed += completed;
+            acc.target += target;
+            if (target > 0 && completed >= target) acc.mastered += 1;
+            return acc;
+        }, { completed: 0, target: 0, mastered: 0 });
+        const progress = totals.target ? Math.min(Math.round((totals.completed / totals.target) * 100), 100) : 0;
+        setText("[data-dsa-stat='roadmap-progress']", progress + "%");
+        setText("[data-dsa-stat='roadmap-mastered']", totals.mastered + " of " + rows.length + " topics mastered");
+        setText("[data-dsa-stat='local-completed']", totals.completed);
+        setText("[data-dsa-stat='local-target']", "of " + totals.target + " roadmap problems");
+        setText("[data-dsa-stat='panel-total']", totals.completed + " / " + totals.target + " solved");
+        const meter = document.querySelector(".dsa-focus-meter");
+        if (meter) meter.style.setProperty("--progress", progress);
+        if (topicList) topicList.hidden = rows.length === 0;
+        if (topicEmpty) topicEmpty.hidden = rows.length > 0;
+    }
+
+    function updateBacklogEmpty() {
+        const hasRows = Boolean(document.querySelector("[data-dsa-pending-id]"));
+        if (backlogList) backlogList.hidden = !hasRows;
+        if (backlogEmpty) backlogEmpty.hidden = hasRows;
+    }
+
+    async function submitDsaForm(form) {
+        const button = form.querySelector("button[type='submit']");
+        if (button) button.disabled = true;
+        try {
+            const response = await fetch(form.action, {
+                method: "POST",
+                body: new FormData(form),
+                headers: {
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            });
+            if (!response.ok) throw new Error("Request failed");
+            const data = await response.json();
+            if (data.topic && (data.action === "add-topic" || data.action === "update-topic")) {
+                updateTopicRow(data.topic);
+                updateRoadmapStats();
+                if (data.action === "add-topic") form.reset();
+            }
+            if (data.action === "delete-topic") {
+                const row = document.querySelector("[data-dsa-topic-id='" + data.id + "']");
+                if (row) row.remove();
+                updateRoadmapStats();
+            }
+            if (data.topic && data.action === "add-pending-topic") {
+                const existing = document.querySelector("[data-dsa-pending-id='" + data.topic.id + "']");
+                if (!existing && backlogList) backlogList.prepend(createPendingRow(data.topic));
+                form.reset();
+                updateBacklogEmpty();
+            }
+            if (data.action === "delete-pending-topic") {
+                const row = document.querySelector("[data-dsa-pending-id='" + data.id + "']");
+                if (row) row.remove();
+                updateBacklogEmpty();
+            }
+            showMessage(data.message || "DSA workspace updated.", !data.ok);
+        } catch (error) {
+            showMessage("Could not update DSA workspace. Please try again.", true);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    document.addEventListener("submit", function (event) {
+        const form = event.target.closest("[data-dsa-action]");
+        if (!form) return;
+        event.preventDefault();
+        submitDsaForm(form);
+    });
+
     if (!window.ApexCharts) return;
 
     const chartText = getComputedStyle(document.body).getPropertyValue("--muted").trim() || "#94a3b8";

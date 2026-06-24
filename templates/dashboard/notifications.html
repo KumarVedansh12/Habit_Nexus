@@ -14,7 +14,7 @@
         </div>
         <div class="dashboard-date-actions">
             {% if notifications %}
-            <form method="POST" action="{{ url_for('clear_notifications') }}">
+            <form method="POST" action="{{ url_for('clear_notifications') }}" data-notification-action="clear">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="dashboard-header-link dashboard-clear-button">Clear account notifications</button>
             </form>
@@ -23,7 +23,9 @@
         </div>
     </header>
 
-    <section class="notification-grid">
+    <p class="dashboard-routine-message" data-notification-message hidden></p>
+
+    <section class="notification-grid" data-notification-grid>
         {% for note in pinned_notifications %}
         <article class="dashboard-notification-card is-pinned">
             <span>Developer pin</span>
@@ -34,11 +36,11 @@
         {% endfor %}
 
         {% for note in ai_notifications %}
-        <article class="dashboard-notification-card is-ai">
+        <article class="dashboard-notification-card is-ai" data-notification-card="ai">
             <span>{{ note.kind }}</span>
             <strong>{{ note.title }}</strong>
             <p>{{ note.message }}</p>
-            <form method="POST" action="{{ url_for('dismiss_ai_notification') }}" class="notification-remove-form">
+            <form method="POST" action="{{ url_for('dismiss_ai_notification') }}" class="notification-remove-form" data-notification-action="remove">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="notification_key" value="{{ note.key }}">
                 <input type="hidden" name="next" value="{{ url_for('notifications') }}">
@@ -48,12 +50,12 @@
         {% endfor %}
 
         {% for note in notifications %}
-        <article class="dashboard-notification-card">
+        <article class="dashboard-notification-card" data-notification-card="account">
             <span>Account</span>
             <strong>Notification</strong>
             <p>{{ note.message }}</p>
             <small>{{ note.created_at }}</small>
-            <form method="POST" action="{{ url_for('delete_notification', notification_id=note.id) }}" class="notification-remove-form">
+            <form method="POST" action="{{ url_for('delete_notification', notification_id=note.id) }}" class="notification-remove-form" data-notification-action="remove">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <button type="submit">Remove</button>
             </form>
@@ -61,8 +63,67 @@
         {% endfor %}
     </section>
 
-    {% if not pinned_notifications and not ai_notifications and not notifications %}
-    <div class="dashboard-empty"><strong>No notifications yet</strong><span>Developer pins and routine reminders will appear here.</span></div>
-    {% endif %}
+    <div class="dashboard-empty" data-notification-empty {% if pinned_notifications or ai_notifications or notifications %}hidden{% endif %}><strong>No notifications yet</strong><span>Developer pins and routine reminders will appear here.</span></div>
 </main>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const message = document.querySelector("[data-notification-message]");
+    const empty = document.querySelector("[data-notification-empty]");
+
+    function showMessage(text, isError) {
+        if (!message || !text) return;
+        message.textContent = text;
+        message.hidden = false;
+        message.classList.toggle("is-error", Boolean(isError));
+        window.clearTimeout(showMessage.timer);
+        showMessage.timer = window.setTimeout(function () {
+            message.hidden = true;
+        }, 2600);
+    }
+
+    function updateEmptyState() {
+        if (!empty) return;
+        const remaining = document.querySelectorAll("[data-notification-card]").length;
+        empty.hidden = remaining > 0;
+    }
+
+    async function submitNotificationForm(form) {
+        const button = form.querySelector("button[type='submit']");
+        if (button) button.disabled = true;
+        try {
+            const response = await fetch(form.action, {
+                method: "POST",
+                body: new FormData(form),
+                headers: {
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            });
+            if (!response.ok) throw new Error("Request failed");
+            const data = await response.json();
+            if (form.dataset.notificationAction === "clear") {
+                document.querySelectorAll("[data-notification-card='account']").forEach(card => card.remove());
+                form.remove();
+            } else {
+                const card = form.closest("[data-notification-card]");
+                if (card) card.remove();
+            }
+            updateEmptyState();
+            showMessage(data.message || "Notification updated.", false);
+        } catch (error) {
+            showMessage("Could not update notification. Please try again.", true);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    document.addEventListener("submit", function (event) {
+        const form = event.target.closest("[data-notification-action]");
+        if (!form) return;
+        event.preventDefault();
+        submitNotificationForm(form);
+    });
+});
+</script>
 {% endblock %}

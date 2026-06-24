@@ -8,7 +8,7 @@ The project started as a personal/resume project and is being upgraded toward a 
 
 - Student authentication with username, email, or public Student ID login.
 - Password reset using registered email and Student ID.
-- Unique public Student ID format such as `username_4821`.
+- Unique public Student ID format such as `username_0000`.
 - Daily routine tracking saved by date, including previous-day history.
 - Calendar view for historical routine progress.
 - Analytics dashboard for habit completion, consistency, DSA growth, and recent activity.

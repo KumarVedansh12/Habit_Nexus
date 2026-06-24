@@ -12,31 +12,33 @@
     </section>
 
     <section class="network-summary" aria-label="Network summary">
-        <article><strong>{{ friends|length }}</strong><span>Connections</span></article>
-        <article><strong>{{ requests|length }}</strong><span>Pending requests</span></article>
+        <article><strong data-network-stat="friends">{{ friends|length }}</strong><span>Connections</span></article>
+        <article><strong data-network-stat="requests">{{ requests|length }}</strong><span>Pending requests</span></article>
         <article><strong>{{ active_challenges }}</strong><span>Active challenges</span></article>
         <article><strong>{{ current_streak }}</strong><span>Your day streak</span></article>
     </section>
 
+    <p class="network-action-message" data-network-message hidden></p>
+
     {% if requests %}
-    <section class="network-section">
+    <section class="network-section" data-network-section="requests">
         <div class="network-section-heading">
             <div><span class="network-eyebrow">Waiting for you</span><h2>Friend requests</h2></div>
-            <span class="network-count">{{ requests|length }}</span>
+            <span class="network-count" data-network-stat="requests-badge">{{ requests|length }}</span>
         </div>
         <div class="network-request-list">
             {% for request in requests %}
-            <article class="network-request-card">
+            <article class="network-request-card" data-network-card="request">
                 <a href="{{ url_for('view_profile', user_id=request.sender_id) }}" class="network-person">
                     <img src="{{ profile_image_url(request) }}" alt="{{ request.username }} profile picture">
                     <div><strong>{{ request.username }}</strong><span>{{ request.college or 'Engineering student' }}</span></div>
                 </a>
                 <div class="network-card-actions">
-                    <form method="POST" action="{{ url_for('accept_request', request_id=request.id) }}">
+                    <form method="POST" action="{{ url_for('accept_request', request_id=request.id) }}" data-network-action="accept">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="network-button network-button-primary">Accept request</button>
                     </form>
-                    <form method="POST" action="{{ url_for('reject_request', request_id=request.id) }}">
+                    <form method="POST" action="{{ url_for('reject_request', request_id=request.id) }}" data-network-action="reject">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="network-button network-button-secondary">Reject</button>
                     </form>
@@ -50,13 +52,13 @@
     <section class="network-section">
         <div class="network-section-heading">
             <div><span class="network-eyebrow">Your circle</span><h2>Friends and progress</h2></div>
-            <span class="network-count">{{ friends|length }}</span>
+            <span class="network-count" data-network-stat="friends-badge">{{ friends|length }}</span>
         </div>
 
         {% if friends %}
         <div class="network-friend-grid">
             {% for friend in friends %}
-            <article class="network-friend-card">
+            <article class="network-friend-card" data-network-card="friend">
                 <div class="network-friend-header">
                     <a href="{{ url_for('view_profile', user_id=friend.id) }}" class="network-person">
                         <img src="{{ profile_image_url(friend) }}" alt="{{ friend.username }} profile picture">
@@ -70,12 +72,12 @@
                     <div><strong>{{ friend.challenge_wins }}</strong><span>Wins</span></div>
                 </div>
                 <div class="network-card-actions">
-                    <form method="POST" action="{{ url_for('challenge_friend', friend_id=friend.id) }}">
+                    <form method="POST" action="{{ url_for('challenge_friend', friend_id=friend.id) }}" data-network-action="challenge">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="network-button network-button-primary">Open challenge</button>
                     </form>
                     <a href="{{ url_for('view_profile', user_id=friend.id) }}" class="network-button network-button-secondary">View profile</a>
-                    <form method="POST" action="{{ url_for('remove_friend', friend_id=friend.id) }}">
+                    <form method="POST" action="{{ url_for('remove_friend', friend_id=friend.id) }}" data-network-action="remove-friend">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="network-text-button">Remove</button>
                     </form>
@@ -122,18 +124,18 @@
             <p>{{ search_result.bio or 'Engineering student on HabitNexus.' }}</p>
             <div class="network-card-actions">
                 {% if search_result.relationship == 'available' %}
-                <form method="POST" action="{{ url_for('send_request', user_id=search_result.id) }}">
+                <form method="POST" action="{{ url_for('send_request', user_id=search_result.id) }}" data-network-action="send">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="network-button network-button-primary">Send request</button>
                 </form>
                 {% elif search_result.relationship == 'sent' %}
                 <span class="network-pill">Request sent</span>
                 {% elif search_result.relationship == 'received' %}
-                <form method="POST" action="{{ url_for('accept_request', request_id=search_result.request_id) }}">
+                <form method="POST" action="{{ url_for('accept_request', request_id=search_result.request_id) }}" data-network-action="accept">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="network-button network-button-primary">Accept request</button>
                 </form>
-                <form method="POST" action="{{ url_for('reject_request', request_id=search_result.request_id) }}">
+                <form method="POST" action="{{ url_for('reject_request', request_id=search_result.request_id) }}" data-network-action="reject">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="network-button network-button-secondary">Reject</button>
                 </form>
@@ -159,7 +161,7 @@
                 </div>
                 <p>{{ user.bio or 'Maintaining HabitNexus and reviewing platform suggestions.' }}</p>
                 <div class="network-card-actions">
-                    <form method="POST" action="{{ url_for('send_request', user_id=user.id) }}">
+                    <form method="POST" action="{{ url_for('send_request', user_id=user.id) }}" data-network-action="send">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="network-button network-button-primary">Connect</button>
                     </form>
@@ -193,4 +195,121 @@
         {% endif %}
     </section>
 </main>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const message = document.querySelector("[data-network-message]");
+
+    function numericStat(name) {
+        const element = document.querySelector("[data-network-stat='" + name + "']");
+        return element ? parseInt(element.textContent, 10) || 0 : 0;
+    }
+
+    function setStat(name, value) {
+        const element = document.querySelector("[data-network-stat='" + name + "']");
+        if (element) element.textContent = Math.max(value, 0);
+    }
+
+    function adjustStat(name, delta) {
+        setStat(name, numericStat(name) + delta);
+    }
+
+    function showMessage(text, isError) {
+        if (!message || !text) return;
+        message.textContent = text;
+        message.hidden = false;
+        message.classList.toggle("is-error", Boolean(isError));
+        window.clearTimeout(showMessage.timer);
+        showMessage.timer = window.setTimeout(function () {
+            message.hidden = true;
+        }, 2800);
+    }
+
+    function replaceActionsWithPill(form, text) {
+        const actions = form.closest(".network-card-actions");
+        if (!actions) return;
+        const pill = document.createElement("span");
+        pill.className = "network-pill";
+        pill.textContent = text;
+        actions.querySelectorAll("form[data-network-action]").forEach(actionForm => actionForm.remove());
+        actions.prepend(pill);
+    }
+
+    function removeCard(form, selector) {
+        const card = form.closest(selector);
+        if (card) card.remove();
+    }
+
+    function syncEmptyRequests() {
+        const section = document.querySelector("[data-network-section='requests']");
+        if (!section) return;
+        if (!section.querySelector("[data-network-card='request']")) section.remove();
+    }
+
+    async function submitNetworkForm(form) {
+        const button = form.querySelector("button[type='submit']");
+        if (button) button.disabled = true;
+        try {
+            const response = await fetch(form.action, {
+                method: "POST",
+                body: new FormData(form),
+                headers: {
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest"
+                }
+            });
+            if (!response.ok) throw new Error("Request failed");
+            const data = await response.json();
+            if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+                return;
+            }
+
+            const action = form.dataset.networkAction;
+            if (action === "send") {
+                if (data.ok) replaceActionsWithPill(form, "Request sent");
+            }
+            if (action === "accept") {
+                if (data.ok) {
+                    removeCard(form, "[data-network-card='request']");
+                    adjustStat("requests", -1);
+                    adjustStat("requests-badge", -1);
+                    adjustStat("friends", 1);
+                    adjustStat("friends-badge", 1);
+                    replaceActionsWithPill(form, "Already friends");
+                    syncEmptyRequests();
+                }
+            }
+            if (action === "reject") {
+                if (data.ok) {
+                    removeCard(form, "[data-network-card='request']");
+                    adjustStat("requests", -1);
+                    adjustStat("requests-badge", -1);
+                    replaceActionsWithPill(form, "Request rejected");
+                    syncEmptyRequests();
+                }
+            }
+            if (action === "remove-friend") {
+                if (data.ok) {
+                    removeCard(form, "[data-network-card='friend']");
+                    adjustStat("friends", -1);
+                    adjustStat("friends-badge", -1);
+                }
+            }
+            showMessage(data.message || "Network updated.", !data.ok && action !== "send");
+        } catch (error) {
+            showMessage("Could not update network action. Please try again.", true);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    document.addEventListener("submit", function (event) {
+        const form = event.target.closest("[data-network-action]");
+        if (!form) return;
+        event.preventDefault();
+        submitNetworkForm(form);
+    });
+});
+</script>
 {% endblock %}
