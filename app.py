@@ -5,6 +5,7 @@ from flask import (
     redirect,
     session,
     Response,
+    jsonify,
     url_for,
     flash,
     g,
@@ -196,6 +197,60 @@ def redirect_dashboard_for(day):
     if day and day != today:
         return redirect(url_for("dashboard", date=day.isoformat()))
     return redirect(url_for("dashboard"))
+
+
+def wants_json_response():
+    return (
+        request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or request.accept_mimetypes.best == "application/json"
+    )
+
+
+def get_dashboard_routine_state(conn, user_id, selected_day):
+    day_key = selected_day.isoformat()
+    routine_rows = conn.execute(
+        """
+        SELECT
+            routines.id,
+            routines.task_name,
+            COALESCE(task_logs.completed, 0) AS completed
+        FROM routines
+        LEFT JOIN task_logs
+            ON task_logs.routine_id=routines.id
+            AND task_logs.log_date=?
+        WHERE routines.user_id=?
+        ORDER BY routines.id DESC
+        """,
+        (day_key, user_id)
+    ).fetchall()
+    routines = [
+        {
+            "id": int(routine["id"]),
+            "task_name": routine["task_name"],
+            "completed": int(routine["completed"] or 0),
+        }
+        for routine in routine_rows
+    ]
+    total = len(routines)
+    completed = sum(routine["completed"] for routine in routines)
+    progress = round((completed / total) * 100) if total else 0
+    focus_task = next((routine for routine in routines if not routine["completed"]), None)
+    return {
+        "routines": routines,
+        "total": total,
+        "completed": completed,
+        "pending": max(total - completed, 0),
+        "progress": progress,
+        "focus_task": focus_task,
+    }
+
+
+def dashboard_routine_json(conn, user_id, selected_day, message=None):
+    state = get_dashboard_routine_state(conn, user_id, selected_day)
+    state["selected_date"] = selected_day.isoformat()
+    state["streak"] = calculate_streak_from_conn(conn, user_id)
+    state["message"] = message
+    return jsonify(state)
 
 
 def normalize_activity_time(value):
@@ -836,25 +891,11 @@ def dashboard():
         (user_id,)
     ).fetchone()
 
-    routines = conn.execute(
-        """
-        SELECT
-            routines.id,
-            routines.task_name,
-            COALESCE(task_logs.completed, 0) AS completed
-        FROM routines
-        LEFT JOIN task_logs
-            ON task_logs.routine_id=routines.id
-            AND task_logs.log_date=?
-        WHERE routines.user_id=?
-        ORDER BY routines.id DESC
-        """,
-        (today_key, user_id)
-    ).fetchall()
-
-    total = len(routines)
-    completed = sum(int(routine["completed"]) for routine in routines)
-    progress = round((completed / total) * 100) if total else 0
+    routine_state = get_dashboard_routine_state(conn, user_id, selected_day)
+    routines = routine_state["routines"]
+    total = routine_state["total"]
+    completed = routine_state["completed"]
+    progress = routine_state["progress"]
 
     seven_days_ago = today - timedelta(days=6)
     weekly_rows = conn.execute(
@@ -905,7 +946,6 @@ def dashboard():
         (user_id, user_id, user_id, user_id)
     ).fetchone()
 
-    focus_task = next((routine for routine in routines if not routine["completed"]), None)
     pending_routines = [routine for routine in routines if not routine["completed"]]
     dismissed_keys = get_dismissed_notification_keys(conn, user_id)
     ai_notifications = [
@@ -921,9 +961,8 @@ def dashboard():
         LIMIT 3
         """
     ).fetchall()
+    streak = calculate_streak_from_conn(conn, user_id)
     conn.close()
-
-    streak = calculate_streak(user_id)
 
     return render_template(
         "dashboard/dashboard.html",
@@ -937,8 +976,8 @@ def dashboard():
         progress=progress,
         streak=streak,
         user=user,
-        focus_task=focus_task,
-        pending=max(total - completed, 0),
+        focus_task=routine_state["focus_task"],
+        pending=routine_state["pending"],
         selected_date=today_key,
         selected_day=selected_day,
         is_today=selected_day == today,
@@ -1862,6 +1901,7 @@ def add_routine():
 
     task = request.form.get("task", "").strip()[:100]
     selected_day = parse_iso_date(request.form.get("selected_date"), date.today())
+    message = None
 
     if task:
 
@@ -1888,10 +1928,24 @@ def add_routine():
                 task
             )
             )
+            message = "Routine added."
+        else:
+            message = "That routine already exists."
 
         conn.commit()
 
+        if wants_json_response():
+            response = dashboard_routine_json(conn, session["user_id"], selected_day, message)
+            conn.close()
+            return response
+
         conn.close()
+
+    elif wants_json_response():
+        conn = get_db_connection()
+        response = dashboard_routine_json(conn, session["user_id"], selected_day, "Enter a routine first.")
+        conn.close()
+        return response
 
     return redirect_dashboard_for(selected_day)
 
@@ -1931,6 +1985,11 @@ def delete(id):
 
     conn.commit()
 
+    if wants_json_response():
+        response = dashboard_routine_json(conn, session["user_id"], selected_day, "Routine deleted.")
+        conn.close()
+        return response
+
     conn.close()
 
     return redirect_dashboard_for(selected_day)
@@ -1957,6 +2016,11 @@ def toggle(id):
     ).fetchone()
 
     if not routine:
+
+        if wants_json_response():
+            response = dashboard_routine_json(conn, session["user_id"], selected_day, "Routine was not found.")
+            conn.close()
+            return response
 
         conn.close()
 
@@ -2009,6 +2073,12 @@ def toggle(id):
         )
 
     conn.commit()
+
+    if wants_json_response():
+        message = "Routine completed." if new_status else "Routine marked incomplete."
+        response = dashboard_routine_json(conn, session["user_id"], selected_day, message)
+        conn.close()
+        return response
 
     conn.close()
 
@@ -2541,9 +2611,7 @@ def remove_friend(friend_id):
     return redirect("/friends-hub")
 
 
-def calculate_streak(user_id):
-
-    conn = get_db_connection()
+def calculate_streak_from_conn(conn, user_id):
 
     streak = 0
 
@@ -2553,7 +2621,6 @@ def calculate_streak(user_id):
     ).fetchone()["total"]
 
     if not routine_count:
-        conn.close()
         return 0
 
     current_day = date.today()
@@ -2583,6 +2650,15 @@ def calculate_streak(user_id):
         streak += 1
 
         current_day -= timedelta(days=1)
+
+    return streak
+
+
+def calculate_streak(user_id):
+
+    conn = get_db_connection()
+
+    streak = calculate_streak_from_conn(conn, user_id)
 
     conn.close()
 
