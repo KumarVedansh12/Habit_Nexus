@@ -20,7 +20,7 @@ The project started as a personal/resume project and is being upgraded toward a 
 - Notification center with account notifications, AI coach reminders, and developer pinned notices.
 - Protected developer console for user management, growth metrics, landing-page content, contact details, suggestions, and pinned notifications.
 - Public landing page with prototype showcase metrics, developer-managed updates, contact details, and suggestion form.
-- PostgreSQL support for production with SQLite fallback for local development.
+- PostgreSQL-only persistence for local development and production.
 
 ## AI Feature
 
@@ -44,7 +44,7 @@ Developer pinned notifications are different from AI coach notifications. They a
 | Templates | Jinja2 |
 | Frontend | HTML, CSS, JavaScript |
 | Charts | ApexCharts |
-| Database | SQLite for local development, PostgreSQL for production |
+| Database | PostgreSQL |
 | Auth | Flask sessions, Werkzeug password hashing |
 | HTTP client | Requests |
 | Production server | Gunicorn |
@@ -59,8 +59,6 @@ HabitNexus/
 ├── Procfile
 ├── PRODUCTION.md
 ├── .env.example
-├── scripts/
-│   └── migrate_sqlite_to_postgres.py
 ├── static/
 │   ├── css/
 │   │   ├── account.css
@@ -139,13 +137,18 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. Run the app locally.
+4. Configure PostgreSQL.
+
+```bash
+export DATABASE_URL="postgresql://user:password@host:5432/database"
+python3 -c "from database import init_db; init_db()"
+```
+
+5. Run the app locally.
 
 ```bash
 python3 app.py
 ```
-
-By default, local development uses SQLite through `database.db`.
 
 ## Environment Variables
 
@@ -167,29 +170,22 @@ DB_CONNECT_TIMEOUT=5
 | --- | --- |
 | `APP_ENV` | Set to `production` in production environments. |
 | `SECRET_KEY` | Required in production for secure Flask sessions. |
-| `DATABASE_URL` | PostgreSQL connection string. If omitted, SQLite is used. |
+| `DATABASE_URL` | Required PostgreSQL connection string. |
 | `DATABASE_SSLMODE` | PostgreSQL SSL mode, commonly `require` on hosted databases. |
 | `SESSION_COOKIE_SECURE` | Set to `1` when the app runs behind HTTPS. |
 | `DEVELOPER_EMAILS` | Comma-separated admin emails that should always regain developer access. |
 | `DB_POOL_MIN` | Minimum PostgreSQL pooled connections per Gunicorn worker. |
 | `DB_POOL_MAX` | Maximum PostgreSQL pooled connections per Gunicorn worker. |
 | `DB_CONNECT_TIMEOUT` | PostgreSQL connection timeout in seconds. |
-| `SQLITE_DATABASE` | Optional local SQLite database path. Defaults to `database.db`. |
 
 ## Production and PostgreSQL
 
-HabitNexus uses PostgreSQL when `DATABASE_URL` is set. Without `DATABASE_URL`, it falls back to SQLite for local development.
+HabitNexus is PostgreSQL-only. `DATABASE_URL` must be set before running the app or database helpers.
 
 Initialize PostgreSQL tables:
 
 ```bash
 DATABASE_URL="postgresql://user:password@host:5432/database" python3 -c "from database import init_db; init_db()"
-```
-
-Migrate existing SQLite data to PostgreSQL:
-
-```bash
-DATABASE_URL="postgresql://user:password@host:5432/database" python3 scripts/migrate_sqlite_to_postgres.py --sqlite database.db --replace
 ```
 
 Run with Gunicorn:
@@ -212,7 +208,6 @@ The included `Procfile` is intended for platforms such as Render.
 - Keep `DB_POOL_MAX` modest for Supabase, for example `5`, to avoid exhausting database connections.
 - Use `pip install -r requirements.txt` as the build command.
 - Use `gunicorn app:app --workers 2 --threads 4 --timeout 120 --access-logfile -` as the start command.
-- Do not rely on `database.db` in production.
 - Run `init_db()` once during setup or migration. The app no longer runs heavy schema initialization during web worker startup.
 
 ## Database Tables
@@ -387,12 +382,6 @@ Initialize database:
 
 ```bash
 python3 -c "from database import init_db; init_db()"
-```
-
-Migrate SQLite to PostgreSQL:
-
-```bash
-DATABASE_URL="postgresql://user:password@host:5432/database" python3 scripts/migrate_sqlite_to_postgres.py --sqlite database.db --replace
 ```
 
 ## Current Roadmap Ideas

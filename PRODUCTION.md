@@ -2,7 +2,7 @@
 
 ## PostgreSQL
 
-HabitNexus uses PostgreSQL when `DATABASE_URL` is set. Without `DATABASE_URL`, it falls back to local SQLite for development.
+HabitNexus is PostgreSQL-only. `DATABASE_URL` is required in every environment.
 
 Required environment variables:
 
@@ -30,21 +30,13 @@ Initialize PostgreSQL tables:
 DATABASE_URL="postgresql://user:password@host:5432/database" python3 -c "from database import init_db; init_db()"
 ```
 
-Migrate existing SQLite data:
-
-```bash
-DATABASE_URL="postgresql://user:password@host:5432/database" python3 scripts/migrate_sqlite_to_postgres.py --sqlite database.db --replace
-```
-
-`--replace` clears PostgreSQL tables first. Omit it only when importing into a new empty database.
-
 ## Run
 
 ```bash
 gunicorn app:app --workers 2 --threads 4 --timeout 120 --access-logfile -
 ```
 
-For hosted platforms, keep `database.db` out of production and use the managed PostgreSQL connection string as `DATABASE_URL`.
+For hosted platforms, use the managed PostgreSQL connection string as `DATABASE_URL`.
 
 `init_db()` is intentionally not called during app startup. Run it once during setup or migration, then start Gunicorn. This keeps hosted workers fast and prevents every web worker from running schema checks on boot.
 

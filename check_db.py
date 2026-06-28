@@ -1,10 +1,10 @@
-from database import get_db_connection, init_db, using_postgres
+from database import get_db_connection, init_db
 
 
 init_db()
 conn = get_db_connection()
 
-print("Backend:", "PostgreSQL" if using_postgres() else "SQLite")
+print("Backend: PostgreSQL")
 print("\nUSERS")
 for row in conn.execute(
     """

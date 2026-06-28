@@ -1,4 +1,4 @@
-from database import get_db_connection, init_db, using_postgres
+from database import get_db_connection, init_db
 
 
 init_db()
@@ -10,4 +10,4 @@ conn.execute("DELETE FROM friends")
 conn.commit()
 conn.close()
 
-print("Cleaned friend requests and friendships from", "PostgreSQL" if using_postgres() else "SQLite")
+print("Cleaned friend requests and friendships from PostgreSQL")
