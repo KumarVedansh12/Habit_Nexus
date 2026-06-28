@@ -51,9 +51,31 @@ def insert_rows(pg_conn, table_name, rows):
     placeholders = ", ".join(["%s"] * len(columns))
     sql = f"INSERT INTO {table_name} ({column_sql}) VALUES ({placeholders})"
 
+    # Get boolean columns from PostgreSQL
+    with pg_conn.cursor() as cursor:
+        cursor.execute("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = %s
+            AND data_type = 'boolean'
+        """, (table_name,))
+        boolean_columns = {row[0] for row in cursor.fetchall()}
+
     with pg_conn.cursor() as cursor:
         for row in rows:
-            cursor.execute(sql, [row[column] for column in columns])
+            values = []
+
+            for column in columns:
+                value = row[column]
+
+                # Automatically convert SQLite 0/1 to PostgreSQL bool
+                if column in boolean_columns and value is not None:
+                    value = bool(value)
+
+                values.append(value)
+
+            cursor.execute(sql, values)
+
     return len(rows)
 
 
