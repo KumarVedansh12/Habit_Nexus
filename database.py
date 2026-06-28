@@ -230,7 +230,9 @@ class PostgresConnection:
         self.closed = False
 
     def execute(self, sql, params=None):
-        cursor = self.connection.cursor(cursor_factory=RealDictCursor)
+        cursor = self.connection.cursor(
+            cursor_factory=RealDictCursor
+        )
         # cursor.execute(to_postgres_sql(sql), params or ())
         query = to_postgres_sql(sql)
         if params is None:
@@ -315,8 +317,31 @@ def get_db_connection():
 
 
 def to_postgres_sql(sql):
-    sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
-    sql = sql.replace("TEXT DEFAULT CURRENT_TIMESTAMP", "TEXT DEFAULT CURRENT_TIMESTAMP::TEXT")
+    sql = sql.replace(
+        "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "SERIAL PRIMARY KEY"
+    )
+
+    sql = sql.replace(
+        "AUTOINCREMENT",
+        ""
+    )
+
+    sql = sql.replace(
+        "INTEGER DEFAULT 0",
+        "BOOLEAN DEFAULT FALSE"
+    )
+
+    sql = sql.replace(
+        "INTEGER DEFAULT 1",
+        "BOOLEAN DEFAULT TRUE"
+    )
+
+    sql = sql.replace(
+        "CURRENT_TIMESTAMP",
+        "NOW()"
+    )
+
     return sql.replace("?", "%s")
 
 
@@ -341,7 +366,8 @@ def get_table_columns(conn, table_name):
             """
             SELECT column_name AS name
             FROM information_schema.columns
-            WHERE table_schema='public' AND table_name=?
+            WHERE table_schema='public'
+            AND table_name=%s
             """,
             (table_name,)
         ).fetchall()
@@ -359,10 +385,10 @@ def init_db():
 
     user_columns = get_table_columns(conn, "users")
     user_migrations = {
-        "is_developer": "INTEGER DEFAULT 0",
-        "is_active": "INTEGER DEFAULT 1",
-        "created_at": "TEXT",
-        "last_login_at": "TEXT",
+        "is_developer": "BOOLEAN DEFAULT FALSE",
+        "is_active": "BOOLEAN DEFAULT TRUE",
+        "created_at": "TIMESTAMP",
+        "last_login_at": "TIMESTAMP",
         "public_id": "TEXT",
     }
     for column, definition in user_migrations.items():
