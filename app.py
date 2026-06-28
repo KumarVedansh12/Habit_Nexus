@@ -550,7 +550,7 @@ def developer_dashboard():
             (SELECT COUNT(*) FROM users WHERE is_active=TRUE) AS active_users,
             (SELECT COUNT(*) FROM users WHERE SUBSTR(created_at, 1, 10)>=?) AS new_users,
             (SELECT COUNT(*) FROM routines) AS routines,
-            (SELECT COALESCE(SUM(completed), 0) FROM task_logs) AS completions,
+            (SELECT COALESCE(SUM(CASE WHEN completed THEN 1 ELSE 0 END), 0) FROM task_logs) AS completions,
             (SELECT COUNT(*) FROM friends) AS friendships,
             (SELECT COUNT(*) FROM suggestions WHERE status='new') AS new_suggestions,
             (SELECT COALESCE(SUM(latest.solved_count), 0)
@@ -586,7 +586,7 @@ def developer_dashboard():
 
     completion_rows = conn.execute(
         """
-        SELECT log_date, COALESCE(SUM(completed), 0) AS total
+        SELECT log_date, COALESCE(SUM(CASE WHEN completed THEN 1 ELSE 0 END), 0) AS total
         FROM task_logs WHERE log_date>=?
         GROUP BY log_date ORDER BY log_date
         """,
@@ -728,7 +728,7 @@ def developer_update_content(content_id):
 def developer_toggle_content(content_id):
     conn = get_db_connection()
     conn.execute(
-        "UPDATE landing_content SET is_published=CASE is_published WHEN 1 THEN 0 ELSE 1 END, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+        "UPDATE landing_content SET is_published=NOT is_published, updated_at=CURRENT_TIMESTAMP WHERE id=?",
         (content_id,)
     )
     conn.commit()
@@ -826,7 +826,7 @@ def developer_toggle_notification(notification_id):
     conn.execute(
         """
         UPDATE developer_notifications
-        SET is_pinned=CASE is_pinned WHEN 1 THEN 0 ELSE 1 END,
+        SET is_pinned=NOT is_pinned,
             updated_at=CURRENT_TIMESTAMP
         WHERE id=?
         """,
@@ -900,7 +900,7 @@ def dashboard():
     seven_days_ago = today - timedelta(days=6)
     weekly_rows = conn.execute(
         """
-        SELECT task_logs.log_date, COALESCE(SUM(task_logs.completed), 0) AS completed
+        SELECT task_logs.log_date, COALESCE(SUM(CASE WHEN completed THEN 1 ELSE 0 END), 0) AS completed
         FROM task_logs
         JOIN routines ON routines.id=task_logs.routine_id
         WHERE routines.user_id=? AND task_logs.log_date>=?
@@ -1206,7 +1206,7 @@ def analytics():
         SELECT
             task_logs.log_date,
             COUNT(*) AS logged_count,
-            COALESCE(SUM(task_logs.completed), 0) AS completed_count
+            COALESCE(SUM(CASE WHEN task_logs.completed THEN 1 ELSE 0 END), 0) AS completed_count
         FROM task_logs
         JOIN routines ON routines.id=task_logs.routine_id
         WHERE routines.user_id=? AND task_logs.log_date>=?
@@ -1238,7 +1238,7 @@ def analytics():
         SELECT
             routines.task_name,
             COUNT(task_logs.id) AS logged_days,
-            COALESCE(SUM(task_logs.completed), 0) AS completed_days
+            COALESCE(SUM(CASE WHEN task_logs.completed THEN 1 ELSE 0 END), 0) AS completed_days
         FROM routines
         LEFT JOIN task_logs
             ON task_logs.routine_id=routines.id
@@ -1335,7 +1335,7 @@ def calendar():
         """
         SELECT
             tl.log_date,
-            COALESCE(SUM(tl.completed), 0) AS completed_count
+            COALESCE(SUM(CASE WHEN tl.completed THEN 1 ELSE 0 END), 0) AS completed_count
         FROM task_logs tl
         JOIN routines r
             ON tl.routine_id = r.id
@@ -1458,7 +1458,7 @@ def leaderboard():
             users.college,
             (SELECT COUNT(*) FROM routines WHERE user_id=users.id) AS routine_count,
             COALESCE((
-                SELECT SUM(task_logs.completed)
+                SELECT SUM(CASE WHEN task_logs.completed THEN 1 ELSE 0 END)
                 FROM task_logs
                 JOIN routines ON routines.id=task_logs.routine_id
                 WHERE routines.user_id=users.id AND task_logs.log_date>=?
@@ -2006,7 +2006,7 @@ def add_routine():
                 task_name,
                 completed
             )
-            VALUES (?,?,0)
+            VALUES (?,?,FALSE)
             """,
             (
                 session["user_id"],
@@ -2262,7 +2262,7 @@ def friends_hub():
                 WHERE dsa_topics.user_id = users.id
             ), 0) AS dsa_solved,
             COALESCE((
-                SELECT SUM(task_logs.completed)
+                SELECT SUM(CASE WHEN task_logs.completed THEN 1 ELSE 0 END)
                 FROM task_logs
                 JOIN routines ON routines.id = task_logs.routine_id
                 WHERE routines.user_id = users.id
@@ -2342,7 +2342,7 @@ def friends_hub():
         FROM task_logs
         JOIN routines ON routines.id = task_logs.routine_id
         JOIN users ON users.id = routines.user_id
-        WHERE task_logs.completed=1
+        WHERE task_logs.completed=TRUE
         AND (
             routines.user_id=?
             OR EXISTS (
@@ -2748,7 +2748,7 @@ def calculate_streak_from_conn(conn, user_id):
 
         completed = conn.execute(
             """
-            SELECT COALESCE(SUM(tl.completed), 0) AS total
+            SELECT COALESCE(SUM(CASE WHEN tl.completed THEN 1 ELSE 0 END), 0) AS total
             FROM task_logs tl
             JOIN routines r
                 ON tl.routine_id = r.id
@@ -2878,7 +2878,7 @@ def view_profile(user_id):
         SELECT
             (SELECT COUNT(*) FROM routines WHERE user_id=?) AS total,
             COALESCE((
-                SELECT SUM(task_logs.completed)
+                SELECT SUM(CASE WHEN task_logs.completed THEN 1 ELSE 0 END)
                 FROM task_logs
                 JOIN routines ON routines.id=task_logs.routine_id
                 WHERE routines.user_id=?
@@ -2891,7 +2891,7 @@ def view_profile(user_id):
         """
         SELECT
             COUNT(*) AS topics,
-            COALESCE(SUM(completed), 0) AS completed,
+            COALESCE(SUM(CASE WHEN completed THEN 1 ELSE 0 END), 0) AS completed,
             COALESCE(SUM(target), 0) AS target
         FROM dsa_topics
         WHERE user_id=?
@@ -3058,7 +3058,7 @@ def challenge_friend(friend_id):
             COALESCE((SELECT SUM(completed) FROM dsa_topics WHERE user_id=users.id), 0) AS dsa_solved,
             COALESCE((SELECT SUM(target) FROM dsa_topics WHERE user_id=users.id), 0) AS dsa_target,
             COALESCE((
-                SELECT SUM(task_logs.completed)
+                SELECT SUM(CASE WHEN task_logs.completed THEN 1 ELSE 0 END)
                 FROM task_logs
                 JOIN routines ON routines.id=task_logs.routine_id
                 WHERE routines.user_id=users.id
@@ -3078,7 +3078,7 @@ def challenge_friend(friend_id):
             COALESCE((SELECT SUM(completed) FROM dsa_topics WHERE user_id=users.id), 0) AS dsa_solved,
             COALESCE((SELECT SUM(target) FROM dsa_topics WHERE user_id=users.id), 0) AS dsa_target,
             COALESCE((
-                SELECT SUM(task_logs.completed)
+                SELECT SUM(CASE WHEN task_logs.completed THEN 1 ELSE 0 END)
                 FROM task_logs
                 JOIN routines ON routines.id=task_logs.routine_id
                 WHERE routines.user_id=users.id
@@ -3162,7 +3162,7 @@ def friend_profile(user_id):
 
     completed_tasks = conn.execute(
         """
-        SELECT COALESCE(SUM(task_logs.completed), 0) AS total
+        SELECT COALESCE(SUM(CASE WHEN task_logs.completed THEN 1 ELSE 0 END), 0) AS total
         FROM task_logs
         JOIN routines ON routines.id=task_logs.routine_id
         WHERE routines.user_id=?
