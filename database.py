@@ -402,7 +402,11 @@ def init_db():
         )
 
     conn.execute(
-        "UPDATE users SET created_at=COALESCE(created_at, CURRENT_TIMESTAMP)"
+            """
+            UPDATE users
+            SET created_at = CURRENT_TIMESTAMP
+            WHERE created_at IS NULL;
+            """
     )
 
     existing_public_ids = {
