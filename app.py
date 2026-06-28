@@ -213,7 +213,7 @@ def get_dashboard_routine_state(conn, user_id, selected_day):
         SELECT
             routines.id,
             routines.task_name,
-            COALESCE(task_logs.completed, 0) AS completed
+            COALESCE(task_logs.completed, FALSE) AS completed
         FROM routines
         LEFT JOIN task_logs
             ON task_logs.routine_id=routines.id
@@ -350,7 +350,7 @@ def ensure_developer_access(conn, user):
         return user
 
     conn.execute(
-        "UPDATE users SET is_developer=1 WHERE id=?",
+        "UPDATE users SET is_developer=TRUE WHERE id=?",
         (user["id"],)
     )
     conn.commit()
@@ -655,7 +655,7 @@ def developer_toggle_user(user_id):
         return redirect(url_for("developer_dashboard", _anchor="users"))
     conn = get_db_connection()
     conn.execute(
-        "UPDATE users SET is_active=CASE is_active WHEN 1 THEN 0 ELSE 1 END WHERE id=? AND is_developer=0",
+        "UPDATE users SET is_active=NOT is_active WHERE id=? AND is_developer=FALSE",
         (user_id,)
     )
     conn.commit()
@@ -956,7 +956,7 @@ def dashboard():
         """
         SELECT id, title, message, created_at
         FROM developer_notifications
-        WHERE is_pinned=1
+        WHERE is_pinned=TRUE
         ORDER BY id DESC
         LIMIT 3
         """
@@ -1185,7 +1185,7 @@ def analytics():
         SELECT
             routines.id,
             routines.task_name,
-            COALESCE(task_logs.completed, 0) AS completed
+            COALESCE(task_logs.completed, FALSE) AS completed
         FROM routines
         LEFT JOIN task_logs
             ON task_logs.routine_id=routines.id
@@ -1414,7 +1414,7 @@ def calendar_day(date):
         """
         SELECT
             r.task_name,
-            COALESCE(tl.completed, 0) AS completed
+            COALESCE(tl.completed, FALSE) AS completed
         FROM routines r
         LEFT JOIN task_logs tl
             ON tl.routine_id = r.id
@@ -1539,7 +1539,7 @@ def notifications():
     today_key = selected_day.isoformat()
     routines = conn.execute(
         """
-        SELECT routines.id, routines.task_name, COALESCE(task_logs.completed, 0) AS completed
+        SELECT routines.id, routines.task_name, COALESCE(task_logs.completed, FALSE) AS completed
         FROM routines
         LEFT JOIN task_logs
             ON task_logs.routine_id=routines.id
@@ -1565,7 +1565,7 @@ def notifications():
         """
         SELECT id, title, message, created_at
         FROM developer_notifications
-        WHERE is_pinned=1
+        WHERE is_pinned=TRUE
         ORDER BY id DESC
         """
     ).fetchall()
@@ -2199,7 +2199,7 @@ def friends_hub():
             FROM users
             WHERE LOWER(public_id)=LOWER(?)
             AND id!=?
-            AND is_active=1
+            AND is_active=TRUE
             """,
             (search_query, current_user)
         ).fetchone()
@@ -2240,8 +2240,8 @@ def friends_hub():
         """
         SELECT id, username, college, bio
         FROM users
-        WHERE is_developer=1
-        AND is_active=1
+        WHERE is_developer=TRUE
+        AND is_active=TRUE
         AND id!=?
         ORDER BY username
         """,
