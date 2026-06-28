@@ -230,7 +230,9 @@ class PostgresConnection:
         self.closed = False
 
     def execute(self, sql, params=None):
-        cursor = self.connection.cursor(cursor_factory=RealDictCursor)
+        cursor = self.connection.cursor(
+            cursor_factory=RealDictCursor
+        )
         # cursor.execute(to_postgres_sql(sql), params or ())
         query = to_postgres_sql(sql)
         if params is None:
@@ -314,9 +316,56 @@ def get_db_connection():
     return conn
 
 
+# Columns that are genuinely true/false flags in app.py, keyed by the table
+# they live in. NOTE: a column name alone isn't enough to decide this --
+# "completed" is a boolean flag in routines/task_logs but a plain integer
+# count in dsa_topics, so the table name matters.
+BOOLEAN_COLUMNS_BY_TABLE = {
+    "users": {"is_developer", "is_active"},
+    "routines": {"completed"},
+    "task_logs": {"completed"},
+    "landing_content": {"is_published"},
+    "developer_notifications": {"is_pinned"},
+}
+
+
 def to_postgres_sql(sql):
-    sql = sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
-    sql = sql.replace("TEXT DEFAULT CURRENT_TIMESTAMP", "TEXT DEFAULT CURRENT_TIMESTAMP::TEXT")
+    sql = sql.replace(
+        "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "SERIAL PRIMARY KEY"
+    )
+
+    sql = sql.replace(
+        "AUTOINCREMENT",
+        ""
+    )
+
+    # Only swap INTEGER 0/1 -> BOOLEAN for columns we know are real flags,
+    # and only inside CREATE TABLE statements. A blind text replace here
+    # would also rewrite dsa_topics.completed/target and
+    # landing_content.display_order, which are real integer counts, not
+    # booleans -- that previously broke inserting/updating numeric values
+    # into those columns once running against Postgres.
+    table_match = re.search(r"CREATE TABLE IF NOT EXISTS\s+(\w+)", sql)
+    if table_match:
+        table_name = table_match.group(1)
+        for column in BOOLEAN_COLUMNS_BY_TABLE.get(table_name, ()):
+            sql = re.sub(
+                rf"\b{column}\s+INTEGER\s+DEFAULT\s+0\b",
+                f"{column} BOOLEAN DEFAULT FALSE",
+                sql,
+            )
+            sql = re.sub(
+                rf"\b{column}\s+INTEGER\s+DEFAULT\s+1\b",
+                f"{column} BOOLEAN DEFAULT TRUE",
+                sql,
+            )
+
+    sql = sql.replace(
+        "CURRENT_TIMESTAMP",
+        "NOW()"
+    )
+
     return sql.replace("?", "%s")
 
 
@@ -341,7 +390,8 @@ def get_table_columns(conn, table_name):
             """
             SELECT column_name AS name
             FROM information_schema.columns
-            WHERE table_schema='public' AND table_name=?
+            WHERE table_schema='public'
+            AND table_name=%s
             """,
             (table_name,)
         ).fetchall()
@@ -359,10 +409,10 @@ def init_db():
 
     user_columns = get_table_columns(conn, "users")
     user_migrations = {
-        "is_developer": "INTEGER DEFAULT 0",
-        "is_active": "INTEGER DEFAULT 1",
-        "created_at": "TEXT",
-        "last_login_at": "TEXT",
+        "is_developer": "BOOLEAN DEFAULT FALSE",
+        "is_active": "BOOLEAN DEFAULT TRUE",
+        "created_at": "TIMESTAMP",
+        "last_login_at": "TIMESTAMP",
         "public_id": "TEXT",
     }
     for column, definition in user_migrations.items():
@@ -376,7 +426,11 @@ def init_db():
         )
 
     conn.execute(
-        "UPDATE users SET created_at=COALESCE(created_at, CURRENT_TIMESTAMP)"
+            """
+            UPDATE users
+            SET created_at = CURRENT_TIMESTAMP
+            WHERE created_at IS NULL;
+            """
     )
 
     existing_public_ids = {
