@@ -922,7 +922,7 @@ def dashboard():
     dsa_summary = conn.execute(
         """
         SELECT
-            COALESCE(SUM(completed), 0) AS completed,
+            COALESCE(SUM(CASE WHEN completed THEN 1 ELSE 0 END), 0) AS completed,
             COALESCE(SUM(target), 0) AS target
         FROM dsa_topics
         WHERE user_id=?
