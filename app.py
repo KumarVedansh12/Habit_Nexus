@@ -900,10 +900,23 @@ def dashboard():
     seven_days_ago = today - timedelta(days=6)
     weekly_rows = conn.execute(
         """
-        SELECT task_logs.log_date, COALESCE(SUM(CASE WHEN completed THEN 1 ELSE 0 END), 0) AS completed
+        SELECT
+            task_logs.log_date,
+            COALESCE(
+                 SUM(
+                    CASE
+                        WHEN task_logs.completed THEN 1
+                        ELSE 0
+                    END
+                ),
+                0
+            ) AS completed
         FROM task_logs
-        JOIN routines ON routines.id=task_logs.routine_id
-        WHERE routines.user_id=? AND task_logs.log_date>=?
+        JOIN routines
+            ON routines.id = task_logs.routine_id
+        WHERE
+            routines.user_id = ?
+            AND task_logs.log_date >= ?
         GROUP BY task_logs.log_date
         """,
         (user_id, seven_days_ago.isoformat())
