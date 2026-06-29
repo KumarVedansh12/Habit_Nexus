@@ -17,6 +17,7 @@
             {% if not is_today %}<a href="{{ url_for('dashboard') }}" class="dashboard-header-link">Today</a>{% endif %}
             <a href="{{ url_for('dashboard', date=next_day) }}" class="dashboard-header-link">Next day</a>
             <a href="{{ url_for('calendar') }}" class="dashboard-header-link">Review calendar</a>
+            <a href="{{ url_for('export_habits') }}" class="dashboard-header-link dashboard-export-link">Export routine history</a>
         </div>
     </header>
 

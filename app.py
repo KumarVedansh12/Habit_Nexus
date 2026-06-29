@@ -126,7 +126,7 @@ def generate_public_id(conn, username):
     while True:
         public_id = f"{seed}_{secrets.randbelow(9000) + 1000}"
         existing = conn.execute(
-            "SELECT 1 FROM users WHERE public_id=?",
+            "SELECT 1 FROM users WHERE public_id=%s",
             (public_id,)
         ).fetchone()
         if not existing:
@@ -137,15 +137,15 @@ def delete_user_progress(conn, user_id):
     routine_ids = [
         row["id"]
         for row in conn.execute(
-            "SELECT id FROM routines WHERE user_id=?",
+            "SELECT id FROM routines WHERE user_id=%s",
             (user_id,)
         ).fetchall()
     ]
     if routine_ids:
-        placeholders = ",".join("?" for _ in routine_ids)
+        placeholders = ",".join("%s" for _ in routine_ids)
         conn.execute(
             f"DELETE FROM task_logs WHERE routine_id IN ({placeholders})",
-            routine_ids
+            tuple(routine_ids)
         )
 
     for table in (
@@ -158,29 +158,29 @@ def delete_user_progress(conn, user_id):
         "pending_topics",
         "dsa_history",
     ):
-        conn.execute(f"DELETE FROM {table} WHERE user_id=?", (user_id,))
+        conn.execute(f"DELETE FROM {table} WHERE user_id=%s", (user_id,))
 
     conn.execute(
         """
         DELETE FROM challenges
-        WHERE challenger_id=? OR challenged_id=? OR winner_id=?
+        WHERE challenger_id=%s OR challenged_id=%s OR winner_id=%s
         """,
         (user_id, user_id, user_id)
     )
     conn.execute(
-        "DELETE FROM friend_requests WHERE sender_id=? OR receiver_id=?",
+        "DELETE FROM friend_requests WHERE sender_id=%s OR receiver_id=%s",
         (user_id, user_id)
     )
     conn.execute(
-        "DELETE FROM friends WHERE user1_id=? OR user2_id=?",
+        "DELETE FROM friends WHERE user1_id=%s OR user2_id=%s",
         (user_id, user_id)
     )
 
 
 def delete_user_account(conn, user_id):
     delete_user_progress(conn, user_id)
-    conn.execute("UPDATE suggestions SET user_id=NULL WHERE user_id=?", (user_id,))
-    conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+    conn.execute("UPDATE suggestions SET user_id=NULL WHERE user_id=%s", (user_id,))
+    conn.execute("DELETE FROM users WHERE id=%s", (user_id,))
 
 
 def parse_iso_date(value, default=None):
@@ -217,8 +217,8 @@ def get_dashboard_routine_state(conn, user_id, selected_day):
         FROM routines
         LEFT JOIN task_logs
             ON task_logs.routine_id=routines.id
-            AND task_logs.log_date=?
-        WHERE routines.user_id=?
+            AND task_logs.log_date=%s
+        WHERE routines.user_id=%s
         ORDER BY routines.id DESC
         """,
         (day_key, user_id)
@@ -299,7 +299,7 @@ def get_dismissed_notification_keys(conn, user_id):
         """
         SELECT notification_key
         FROM notification_dismissals
-        WHERE user_id=?
+        WHERE user_id=%s
         """,
         (user_id,)
     ).fetchall()
@@ -350,7 +350,7 @@ def ensure_developer_access(conn, user):
         return user
 
     conn.execute(
-        "UPDATE users SET is_developer=1 WHERE id=?",
+        "UPDATE users SET is_developer=1 WHERE id=%s",
         (user["id"],)
     )
     conn.commit()
@@ -395,7 +395,7 @@ app.jinja_env.globals["profile_image_url"] = profile_image_url
 def profile_image(user_id):
     conn = get_db_connection()
     user = conn.execute(
-        "SELECT profile_image FROM users WHERE id=?",
+        "SELECT profile_image FROM users WHERE id=%s",
         (user_id,)
     ).fetchone()
     conn.close()
@@ -405,11 +405,11 @@ def profile_image(user_id):
         return redirect(default_avatar_url())
 
     if image_value.startswith("data:"):
-        match = re.fullmatch(r"data:(image/(?:png|jpeg|webp));base64,(.+)", image_value, re.DOTALL)
+        match = re.fullmatch(r"data:(image/(png|jpeg|webp));base64,(.+)", image_value, re.DOTALL)
         if not match:
             return redirect(default_avatar_url())
         try:
-            image_bytes = base64.b64decode(match.group(2), validate=True)
+            image_bytes = base64.b64decode(match.group(3), validate=True)
         except ValueError:
             return redirect(default_avatar_url())
         response = Response(image_bytes, mimetype=match.group(1))
@@ -447,7 +447,7 @@ def load_current_user_and_protect_forms():
                 """
                 SELECT id, username, email, profile_image, is_developer, is_active, public_id
                 FROM users
-                WHERE id=?
+                WHERE id=%s
                 """,
                 (user_id,)
             ).fetchone()
@@ -514,7 +514,7 @@ def submit_suggestion():
     conn.execute(
         """
         INSERT INTO suggestions (user_id, name, email, message)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
         """,
         (session.get("user_id"), name, email or None, message)
     )
@@ -548,7 +548,7 @@ def developer_dashboard():
         SELECT
             (SELECT COUNT(*) FROM users) AS users,
             (SELECT COUNT(*) FROM users WHERE is_active=1) AS active_users,
-            (SELECT COUNT(*) FROM users WHERE SUBSTR(created_at, 1, 10)>=?) AS new_users,
+            (SELECT COUNT(*) FROM users WHERE SUBSTRING(created_at::TEXT FROM 1 FOR 10)>=%s) AS new_users,
             (SELECT COUNT(*) FROM routines) AS routines,
             (SELECT COALESCE(SUM(completed), 0) FROM task_logs) AS completions,
             (SELECT COUNT(*) FROM friends) AS friendships,
@@ -570,9 +570,9 @@ def developer_dashboard():
 
     signup_rows = conn.execute(
         """
-        SELECT SUBSTR(created_at, 1, 10) AS day, COUNT(*) AS total
-        FROM users WHERE SUBSTR(created_at, 1, 10)>=?
-        GROUP BY SUBSTR(created_at, 1, 10)
+        SELECT SUBSTRING(created_at::TEXT FROM 1 FOR 10) AS day, COUNT(*) AS total
+        FROM users WHERE SUBSTRING(created_at::TEXT FROM 1 FOR 10)>=%s
+        GROUP BY SUBSTRING(created_at::TEXT FROM 1 FOR 10)
         """,
         (thirty_days_ago.isoformat(),)
     ).fetchall()
@@ -587,7 +587,7 @@ def developer_dashboard():
     completion_rows = conn.execute(
         """
         SELECT log_date, COALESCE(SUM(completed), 0) AS total
-        FROM task_logs WHERE log_date>=?
+        FROM task_logs WHERE log_date>=%s
         GROUP BY log_date ORDER BY log_date
         """,
         ((today - timedelta(days=13)).isoformat(),)
@@ -604,7 +604,9 @@ def developer_dashboard():
         """
         SELECT
             users.id, users.username, users.email, users.public_id, users.profile_image,
-            users.is_active, users.is_developer, users.created_at, users.last_login_at,
+            users.is_active, users.is_developer,
+            users.created_at::TEXT AS created_at,
+            users.last_login_at::TEXT AS last_login_at,
             (SELECT COUNT(*) FROM routines WHERE user_id=users.id) AS routines,
             COALESCE(
                 (SELECT solved_count
@@ -655,7 +657,7 @@ def developer_toggle_user(user_id):
         return redirect(url_for("developer_dashboard", _anchor="users"))
     conn = get_db_connection()
     conn.execute(
-        "UPDATE users SET is_active=CASE is_active WHEN 1 THEN 0 ELSE 1 END WHERE id=? AND is_developer=0",
+        "UPDATE users SET is_active=CASE is_active WHEN 1 THEN 0 ELSE 1 END WHERE id=%s AND is_developer=0",
         (user_id,)
     )
     conn.commit()
@@ -684,7 +686,7 @@ def developer_add_content():
         conn.execute(
             """
             INSERT INTO landing_content (title, body, link_label, link_url, display_order)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
             """,
             (title, body, link_label, link_url, display_order)
         )
@@ -712,8 +714,8 @@ def developer_update_content(content_id):
         conn.execute(
             """
             UPDATE landing_content
-            SET title=?, body=?, link_label=?, link_url=?, display_order=?, updated_at=CURRENT_TIMESTAMP
-            WHERE id=?
+            SET title=%s, body=%s, link_label=%s, link_url=%s, display_order=%s, updated_at=CURRENT_TIMESTAMP
+            WHERE id=%s
             """,
             (title, body, link_label, link_url, display_order, content_id)
         )
@@ -728,7 +730,7 @@ def developer_update_content(content_id):
 def developer_toggle_content(content_id):
     conn = get_db_connection()
     conn.execute(
-        "UPDATE landing_content SET is_published=CASE is_published WHEN 1 THEN 0 ELSE 1 END, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+        "UPDATE landing_content SET is_published=CASE is_published WHEN 1 THEN 0 ELSE 1 END, updated_at=CURRENT_TIMESTAMP WHERE id=%s",
         (content_id,)
     )
     conn.commit()
@@ -759,7 +761,7 @@ def developer_update_contact():
         conn.execute(
             """
             INSERT INTO landing_contact (contact_key, contact_value, updated_at)
-            VALUES (?, ?, CURRENT_TIMESTAMP)
+            VALUES (%s, %s, CURRENT_TIMESTAMP)
             ON CONFLICT(contact_key) DO UPDATE SET
                 contact_value=excluded.contact_value,
                 updated_at=CURRENT_TIMESTAMP
@@ -785,7 +787,7 @@ def developer_add_notification():
     conn.execute(
         """
         INSERT INTO developer_notifications (title, message, is_pinned)
-        VALUES (?, ?, 1)
+        VALUES (%s, %s, 1)
         """,
         (title, message)
     )
@@ -808,8 +810,8 @@ def developer_update_notification(notification_id):
     conn.execute(
         """
         UPDATE developer_notifications
-        SET title=?, message=?, updated_at=CURRENT_TIMESTAMP
-        WHERE id=?
+        SET title=%s, message=%s, updated_at=CURRENT_TIMESTAMP
+        WHERE id=%s
         """,
         (title, message, notification_id)
     )
@@ -828,7 +830,7 @@ def developer_toggle_notification(notification_id):
         UPDATE developer_notifications
         SET is_pinned=CASE is_pinned WHEN 1 THEN 0 ELSE 1 END,
             updated_at=CURRENT_TIMESTAMP
-        WHERE id=?
+        WHERE id=%s
         """,
         (notification_id,)
     )
@@ -841,7 +843,7 @@ def developer_toggle_notification(notification_id):
 @developer_required
 def developer_delete_notification(notification_id):
     conn = get_db_connection()
-    conn.execute("DELETE FROM developer_notifications WHERE id=?", (notification_id,))
+    conn.execute("DELETE FROM developer_notifications WHERE id=%s", (notification_id,))
     conn.commit()
     conn.close()
     flash("Pinned notification deleted.", "success")
@@ -853,7 +855,7 @@ def developer_delete_notification(notification_id):
 def developer_delete_suggestion(suggestion_id):
     conn = get_db_connection()
     deleted = conn.execute(
-        "DELETE FROM suggestions WHERE id=? AND status='resolved'",
+        "DELETE FROM suggestions WHERE id=%s AND status='resolved'",
         (suggestion_id,)
     )
     conn.commit()
@@ -869,7 +871,7 @@ def developer_suggestion_status(suggestion_id):
     if status not in {"new", "reviewed", "resolved"}:
         abort(400)
     conn = get_db_connection()
-    conn.execute("UPDATE suggestions SET status=? WHERE id=?", (status, suggestion_id))
+    conn.execute("UPDATE suggestions SET status=%s WHERE id=%s", (status, suggestion_id))
     conn.commit()
     conn.close()
     return redirect(url_for("developer_dashboard", _anchor="suggestions"))
@@ -887,7 +889,7 @@ def dashboard():
     conn = get_db_connection()
 
     user = conn.execute(
-        "SELECT id, username, profile_image FROM users WHERE id=?",
+        "SELECT id, username, profile_image FROM users WHERE id=%s",
         (user_id,)
     ).fetchone()
 
@@ -903,7 +905,7 @@ def dashboard():
         SELECT task_logs.log_date, COALESCE(SUM(task_logs.completed), 0) AS completed
         FROM task_logs
         JOIN routines ON routines.id=task_logs.routine_id
-        WHERE routines.user_id=? AND task_logs.log_date>=?
+        WHERE routines.user_id=%s AND task_logs.log_date>=%s
         GROUP BY task_logs.log_date
         """,
         (user_id, seven_days_ago.isoformat())
@@ -925,23 +927,23 @@ def dashboard():
             COALESCE(SUM(completed), 0) AS completed,
             COALESCE(SUM(target), 0) AS target
         FROM dsa_topics
-        WHERE user_id=?
+        WHERE user_id=%s
         """,
         (user_id,)
     ).fetchone()
     latest_dsa = conn.execute(
         """
         SELECT solved_count FROM dsa_history
-        WHERE user_id=? ORDER BY log_date DESC LIMIT 1
+        WHERE user_id=%s ORDER BY log_date DESC LIMIT 1
         """,
         (user_id,)
     ).fetchone()
     social_summary = conn.execute(
         """
         SELECT
-            (SELECT COUNT(*) FROM friends WHERE user1_id=? OR user2_id=?) AS friends,
+            (SELECT COUNT(*) FROM friends WHERE user1_id=%s OR user2_id=%s) AS friends,
             (SELECT COUNT(*) FROM challenges
-             WHERE status='active' AND (challenger_id=? OR challenged_id=?)) AS challenges
+             WHERE status='active' AND (challenger_id=%s OR challenged_id=%s)) AS challenges
         """,
         (user_id, user_id, user_id, user_id)
     ).fetchone()
@@ -1012,9 +1014,9 @@ def login():
             """
             SELECT *
             FROM users
-            WHERE LOWER(username)=LOWER(?)
-            OR LOWER(email)=LOWER(?)
-            OR LOWER(public_id)=LOWER(?)
+            WHERE LOWER(username)=LOWER(%s)
+            OR LOWER(email)=LOWER(%s)
+            OR LOWER(public_id)=LOWER(%s)
             """,
             (identifier, identifier, identifier)
         ).fetchone()
@@ -1024,7 +1026,7 @@ def login():
         elif user and check_password_hash(user["password"], password):
             user = ensure_developer_access(conn, user)
             conn.execute(
-                "UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?",
+                "UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=%s",
                 (user["id"],)
             )
             conn.commit()
@@ -1078,13 +1080,13 @@ def forgot_password():
                 """
                 SELECT id
                 FROM users
-                WHERE LOWER(email)=LOWER(?) AND LOWER(public_id)=LOWER(?)
+                WHERE LOWER(email)=LOWER(%s) AND LOWER(public_id)=LOWER(%s)
                 """,
                 (email, public_id)
             ).fetchone()
             if user:
                 conn.execute(
-                    "UPDATE users SET password=? WHERE id=?",
+                    "UPDATE users SET password=%s WHERE id=%s",
                     (generate_password_hash(new_password), user["id"])
                 )
                 conn.commit()
@@ -1141,8 +1143,8 @@ def register():
             """
             SELECT 1
             FROM users
-            WHERE LOWER(username)=LOWER(?)
-            OR LOWER(email)=LOWER(?)
+            WHERE LOWER(username)=LOWER(%s)
+            OR LOWER(email)=LOWER(%s)
             """,
             (username, email)
         ).fetchone() if conn else None
@@ -1154,7 +1156,7 @@ def register():
             conn.execute(
                 """
                 INSERT INTO users (username, email, password, public_id, created_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
                 """,
                 (username, email, generate_password_hash(password), generate_public_id(conn, username))
             )
@@ -1189,8 +1191,8 @@ def analytics():
         FROM routines
         LEFT JOIN task_logs
             ON task_logs.routine_id=routines.id
-            AND task_logs.log_date=?
-        WHERE routines.user_id=?
+            AND task_logs.log_date=%s
+        WHERE routines.user_id=%s
         ORDER BY routines.id DESC
         """,
         (date.today().isoformat(), user_id)
@@ -1209,7 +1211,7 @@ def analytics():
             COALESCE(SUM(task_logs.completed), 0) AS completed_count
         FROM task_logs
         JOIN routines ON routines.id=task_logs.routine_id
-        WHERE routines.user_id=? AND task_logs.log_date>=?
+        WHERE routines.user_id=%s AND task_logs.log_date>=%s
         GROUP BY task_logs.log_date
         """,
         (user_id, start_date.isoformat())
@@ -1242,8 +1244,8 @@ def analytics():
         FROM routines
         LEFT JOIN task_logs
             ON task_logs.routine_id=routines.id
-            AND task_logs.log_date>=?
-        WHERE routines.user_id=?
+            AND task_logs.log_date>=%s
+        WHERE routines.user_id=%s
         GROUP BY routines.id
         ORDER BY completed_days DESC, routines.task_name
         """,
@@ -1268,7 +1270,7 @@ def analytics():
         """
         SELECT solved_count, log_date
         FROM dsa_history
-        WHERE user_id=? AND log_date>=?
+        WHERE user_id=%s AND log_date>=%s
         ORDER BY log_date
         """,
         (user_id, start_date.isoformat())
@@ -1327,7 +1329,7 @@ def calendar():
     month_start = date(year, month, 1)
     month_end = date(year, month, cal.monthrange(year, month)[1])
     routine_count = conn.execute(
-        "SELECT COUNT(*) AS total FROM routines WHERE user_id=?",
+        "SELECT COUNT(*) AS total FROM routines WHERE user_id=%s",
         (user_id,)
     ).fetchone()["total"]
 
@@ -1339,8 +1341,8 @@ def calendar():
         FROM task_logs tl
         JOIN routines r
             ON tl.routine_id = r.id
-        WHERE r.user_id = ?
-        AND tl.log_date BETWEEN ? AND ?
+        WHERE r.user_id = %s
+        AND tl.log_date BETWEEN %s AND %s
         GROUP BY tl.log_date
         """,
         (user_id, month_start.isoformat(), month_end.isoformat())
@@ -1418,8 +1420,8 @@ def calendar_day(date):
         FROM routines r
         LEFT JOIN task_logs tl
             ON tl.routine_id = r.id
-            AND tl.log_date = ?
-        WHERE r.user_id = ?
+            AND tl.log_date = %s
+        WHERE r.user_id = %s
         ORDER BY r.id
         """,
         (
@@ -1461,7 +1463,7 @@ def leaderboard():
                 SELECT SUM(task_logs.completed)
                 FROM task_logs
                 JOIN routines ON routines.id=task_logs.routine_id
-                WHERE routines.user_id=users.id AND task_logs.log_date>=?
+                WHERE routines.user_id=users.id AND task_logs.log_date>=%s
             ), 0) AS weekly_completions,
             COALESCE((
                 SELECT solved_count FROM dsa_history
@@ -1470,15 +1472,15 @@ def leaderboard():
             ), 0) AS latest_dsa,
             COALESCE((
                 SELECT solved_count FROM dsa_history
-                WHERE user_id=users.id AND log_date>=?
+                WHERE user_id=users.id AND log_date>=%s
                 ORDER BY log_date ASC LIMIT 1
             ), 0) AS first_dsa
         FROM users
-        WHERE users.id=?
+        WHERE users.id=%s
         OR EXISTS (
             SELECT 1 FROM friends
-            WHERE (friends.user1_id=? AND friends.user2_id=users.id)
-               OR (friends.user2_id=? AND friends.user1_id=users.id)
+            WHERE (friends.user1_id=%s AND friends.user2_id=users.id)
+               OR (friends.user2_id=%s AND friends.user1_id=users.id)
         )
         ORDER BY users.username
         """,
@@ -1543,8 +1545,8 @@ def notifications():
         FROM routines
         LEFT JOIN task_logs
             ON task_logs.routine_id=routines.id
-            AND task_logs.log_date=?
-        WHERE routines.user_id=?
+            AND task_logs.log_date=%s
+        WHERE routines.user_id=%s
         ORDER BY routines.id DESC
         """,
         (today_key, session["user_id"])
@@ -1573,7 +1575,7 @@ def notifications():
         """
         SELECT *
         FROM notifications
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY id DESC
         """,
         (session["user_id"],)
@@ -1596,7 +1598,7 @@ def clear_notifications():
 
     conn = get_db_connection()
     conn.execute(
-        "DELETE FROM notifications WHERE user_id=?",
+        "DELETE FROM notifications WHERE user_id=%s",
         (session["user_id"],)
     )
     conn.commit()
@@ -1622,7 +1624,7 @@ def dismiss_ai_notification():
     conn.execute(
         """
         INSERT INTO notification_dismissals (user_id, notification_key, dismissed_at)
-        VALUES (?, ?, CURRENT_TIMESTAMP)
+        VALUES (%s, %s, CURRENT_TIMESTAMP)
         ON CONFLICT(user_id, notification_key)
         DO UPDATE SET dismissed_at=CURRENT_TIMESTAMP
         """,
@@ -1646,7 +1648,7 @@ def delete_notification(notification_id):
 
     conn = get_db_connection()
     conn.execute(
-        "DELETE FROM notifications WHERE id=? AND user_id=?",
+        "DELETE FROM notifications WHERE id=%s AND user_id=%s",
         (notification_id, session["user_id"])
     )
     conn.commit()
@@ -1679,7 +1681,7 @@ def profile():
         """
         SELECT *
         FROM users
-        WHERE id=?
+        WHERE id=%s
         """,
         (session["user_id"],)
     ).fetchone()
@@ -1728,15 +1730,15 @@ def profile():
             """
             UPDATE users
             SET
-                profile_image=?,
-                bio=?,
-                college=?,
-                branch=?,
-                year=?,
-                github=?,
-                linkedin=?,
-                leetcode=?
-            WHERE id=?
+                profile_image=%s,
+                bio=%s,
+                college=%s,
+                branch=%s,
+                year=%s,
+                github=%s,
+                linkedin=%s,
+                leetcode=%s
+            WHERE id=%s
             """,
             (
                 image_path,
@@ -1829,7 +1831,7 @@ def settings():
         """
         SELECT *
         FROM users
-        WHERE id=?
+        WHERE id=%s
         """,
         (session["user_id"],)
     ).fetchone()
@@ -1853,7 +1855,7 @@ def settings():
                 conn.execute(
                     """
                     INSERT INTO suggestions (user_id, name, email, message)
-                    VALUES (?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s)
                     """,
                     (session["user_id"], user["username"], user["email"], message)
                 )
@@ -1888,7 +1890,7 @@ def settings():
                 duplicate = conn.execute(
                     """
                     SELECT 1 FROM users
-                    WHERE id!=? AND (LOWER(username)=LOWER(?) OR LOWER(email)=LOWER(?))
+                    WHERE id!=%s AND (LOWER(username)=LOWER(%s) OR LOWER(email)=LOWER(%s))
                     """,
                     (session["user_id"], username, email)
                 ).fetchone()
@@ -1898,7 +1900,7 @@ def settings():
                     category = "error"
                 else:
                     conn.execute(
-                        "UPDATE users SET username=?, email=? WHERE id=?",
+                        "UPDATE users SET username=%s, email=%s WHERE id=%s",
                         (username, email, session["user_id"])
                     )
                     conn.commit()
@@ -1926,7 +1928,7 @@ def settings():
                 category = "error"
             else:
                 conn.execute(
-                    "UPDATE users SET password=? WHERE id=?",
+                    "UPDATE users SET password=%s WHERE id=%s",
                     (generate_password_hash(new_password), session["user_id"])
                 )
                 conn.commit()
@@ -1993,7 +1995,7 @@ def add_routine():
         conn = get_db_connection()
 
         existing = conn.execute(
-            "SELECT 1 FROM routines WHERE user_id=? AND LOWER(task_name)=LOWER(?)",
+            "SELECT 1 FROM routines WHERE user_id=%s AND LOWER(task_name)=LOWER(%s)",
             (session["user_id"], task)
         ).fetchone()
 
@@ -2006,7 +2008,7 @@ def add_routine():
                 task_name,
                 completed
             )
-            VALUES (?,?,0)
+            VALUES (%s,%s,0)
             """,
             (
                 session["user_id"],
@@ -2047,10 +2049,10 @@ def delete(id):
     conn.execute(
         """
         DELETE FROM task_logs
-        WHERE routine_id=?
+        WHERE routine_id=%s
         AND EXISTS (
             SELECT 1 FROM routines
-            WHERE routines.id=? AND routines.user_id=?
+            WHERE routines.id=%s AND routines.user_id=%s
         )
         """,
         (id, id, session["user_id"])
@@ -2059,8 +2061,8 @@ def delete(id):
     conn.execute(
         """
         DELETE FROM routines
-        WHERE id=?
-        AND user_id=?
+        WHERE id=%s
+        AND user_id=%s
         """,
         (
             id,
@@ -2091,8 +2093,8 @@ def toggle(id):
         """
         SELECT *
         FROM routines
-        WHERE id=?
-        AND user_id=?
+        WHERE id=%s
+        AND user_id=%s
         """,
         (
             id,
@@ -2116,7 +2118,7 @@ def toggle(id):
     existing_log = conn.execute(
         """
         SELECT * FROM task_logs
-        WHERE routine_id=? AND log_date=?
+        WHERE routine_id=%s AND log_date=%s
         """,
         (id, log_date)
     ).fetchone()
@@ -2129,8 +2131,8 @@ def toggle(id):
         conn.execute(
             """
             UPDATE task_logs
-            SET completed=?
-            WHERE id=?
+            SET completed=%s
+            WHERE id=%s
             """,
             (
                 new_status,
@@ -2148,7 +2150,7 @@ def toggle(id):
                 log_date,
                 completed
             )
-            VALUES (?,?,?)
+            VALUES (%s,%s,%s)
             """,
             (
                 id,
@@ -2184,7 +2186,7 @@ def friends_hub():
     current_user = session["user_id"]
 
     current_user_row = conn.execute(
-        "SELECT id, username, public_id FROM users WHERE id=?",
+        "SELECT id, username, public_id FROM users WHERE id=%s",
         (current_user,)
     ).fetchone()
 
@@ -2197,8 +2199,8 @@ def friends_hub():
             """
             SELECT id, username, public_id, college, bio
             FROM users
-            WHERE LOWER(public_id)=LOWER(?)
-            AND id!=?
+            WHERE LOWER(public_id)=LOWER(%s)
+            AND id!=%s
             AND is_active=1
             """,
             (search_query, current_user)
@@ -2210,7 +2212,7 @@ def friends_hub():
             friendship = conn.execute(
                 """
                 SELECT 1 FROM friends
-                WHERE (user1_id=? AND user2_id=?) OR (user1_id=? AND user2_id=?)
+                WHERE (user1_id=%s AND user2_id=%s) OR (user1_id=%s AND user2_id=%s)
                 """,
                 (current_user, search_result["id"], search_result["id"], current_user)
             ).fetchone()
@@ -2219,7 +2221,7 @@ def friends_hub():
                 SELECT id, sender_id, receiver_id, status
                 FROM friend_requests
                 WHERE status='pending'
-                AND ((sender_id=? AND receiver_id=?) OR (sender_id=? AND receiver_id=?))
+                AND ((sender_id=%s AND receiver_id=%s) OR (sender_id=%s AND receiver_id=%s))
                 """,
                 (current_user, search_result["id"], search_result["id"], current_user)
             ).fetchone()
@@ -2242,7 +2244,7 @@ def friends_hub():
         FROM users
         WHERE is_developer=1
         AND is_active=1
-        AND id!=?
+        AND id!=%s
         ORDER BY username
         """,
         (current_user,)
@@ -2284,12 +2286,12 @@ def friends_hub():
 
         WHERE
         (
-            friends.user1_id = ?
+            friends.user1_id = %s
             OR
-            friends.user2_id = ?
+            friends.user2_id = %s
         )
 
-        AND users.id != ?
+        AND users.id != %s
 
         ORDER BY users.username
     """, (
@@ -2320,7 +2322,7 @@ def friends_hub():
 
         ON users.id = friend_requests.sender_id
 
-        WHERE friend_requests.receiver_id = ?
+        WHERE friend_requests.receiver_id = %s
         AND friend_requests.status = 'pending'
 
     """, (current_user,)).fetchall()
@@ -2344,11 +2346,11 @@ def friends_hub():
         JOIN users ON users.id = routines.user_id
         WHERE task_logs.completed=1
         AND (
-            routines.user_id=?
+            routines.user_id=%s
             OR EXISTS (
                 SELECT 1 FROM friends
-                WHERE (friends.user1_id=? AND friends.user2_id=routines.user_id)
-                   OR (friends.user2_id=? AND friends.user1_id=routines.user_id)
+                WHERE (friends.user1_id=%s AND friends.user2_id=routines.user_id)
+                   OR (friends.user2_id=%s AND friends.user1_id=routines.user_id)
             )
         )
         ORDER BY task_logs.log_date DESC
@@ -2369,11 +2371,11 @@ def friends_hub():
             'DSA' AS kind
         FROM dsa_history
         JOIN users ON users.id = dsa_history.user_id
-        WHERE dsa_history.user_id=?
+        WHERE dsa_history.user_id=%s
         OR EXISTS (
             SELECT 1 FROM friends
-            WHERE (friends.user1_id=? AND friends.user2_id=dsa_history.user_id)
-               OR (friends.user2_id=? AND friends.user1_id=dsa_history.user_id)
+            WHERE (friends.user1_id=%s AND friends.user2_id=dsa_history.user_id)
+               OR (friends.user2_id=%s AND friends.user1_id=dsa_history.user_id)
         )
         ORDER BY dsa_history.log_date DESC
         LIMIT 6
@@ -2394,13 +2396,13 @@ def friends_hub():
         FROM challenges
         JOIN users AS challenger ON challenger.id = challenges.challenger_id
         JOIN users AS challenged ON challenged.id = challenges.challenged_id
-        WHERE challenges.challenger_id=? OR challenges.challenged_id=?
+        WHERE challenges.challenger_id=%s OR challenges.challenged_id=%s
         OR EXISTS (
             SELECT 1 FROM friends
-            WHERE (friends.user1_id=? AND friends.user2_id=challenges.challenger_id)
-               OR (friends.user2_id=? AND friends.user1_id=challenges.challenger_id)
-               OR (friends.user1_id=? AND friends.user2_id=challenges.challenged_id)
-               OR (friends.user2_id=? AND friends.user1_id=challenges.challenged_id)
+            WHERE (friends.user1_id=%s AND friends.user2_id=challenges.challenger_id)
+               OR (friends.user2_id=%s AND friends.user1_id=challenges.challenger_id)
+               OR (friends.user1_id=%s AND friends.user2_id=challenges.challenged_id)
+               OR (friends.user2_id=%s AND friends.user1_id=challenges.challenged_id)
         )
         ORDER BY challenges.created_at DESC
         LIMIT 6
@@ -2420,10 +2422,10 @@ def friends_hub():
             'Network' AS kind
         FROM friends
         JOIN users ON users.id = CASE
-            WHEN friends.user1_id=? THEN friends.user2_id
+            WHEN friends.user1_id=%s THEN friends.user2_id
             ELSE friends.user1_id
         END
-        WHERE friends.user1_id=? OR friends.user2_id=?
+        WHERE friends.user1_id=%s OR friends.user2_id=%s
         ORDER BY friends.id DESC
         LIMIT 6
         """,
@@ -2449,7 +2451,7 @@ def friends_hub():
         SELECT COUNT(*) AS total
         FROM challenges
         WHERE status = 'active'
-        AND (challenger_id=? OR challenged_id=?)
+        AND (challenger_id=%s OR challenged_id=%s)
         """,
         (current_user, current_user)
     ).fetchone()["total"]
@@ -2490,13 +2492,13 @@ def send_request(user_id):
     conn = get_db_connection()
 
     target = conn.execute(
-        "SELECT id FROM users WHERE id=? AND id!=?",
+        "SELECT id FROM users WHERE id=%s AND id!=%s",
         (user_id, session["user_id"])
     ).fetchone()
 
     existing_friend = conn.execute("""
         SELECT 1 FROM friends
-        WHERE (user1_id=? AND user2_id=?) OR (user1_id=? AND user2_id=?)
+        WHERE (user1_id=%s AND user2_id=%s) OR (user1_id=%s AND user2_id=%s)
     """, (session["user_id"], user_id, user_id, session["user_id"])).fetchone()
 
     existing = conn.execute("""
@@ -2506,8 +2508,8 @@ def send_request(user_id):
 
         WHERE
         (
-            (sender_id = ? AND receiver_id = ?)
-            OR (sender_id = ? AND receiver_id = ?)
+            (sender_id = %s AND receiver_id = %s)
+            OR (sender_id = %s AND receiver_id = %s)
         )
 
     """, (
@@ -2534,7 +2536,7 @@ def send_request(user_id):
 
             )
 
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
 
         """, (
 
@@ -2573,8 +2575,8 @@ def accept_request(request_id):
             SELECT *
             FROM friend_requests
 
-            WHERE id = ?
-            AND receiver_id = ?
+            WHERE id = %s
+            AND receiver_id = %s
             AND status = 'pending'
 
         """, (request_id, session["user_id"])).fetchone()
@@ -2590,11 +2592,11 @@ def accept_request(request_id):
 
                 )
 
-                SELECT ?, ?
+                SELECT %s, %s
                 WHERE NOT EXISTS (
                     SELECT 1 FROM friends
-                    WHERE (user1_id=? AND user2_id=?)
-                       OR (user1_id=? AND user2_id=?)
+                    WHERE (user1_id=%s AND user2_id=%s)
+                       OR (user1_id=%s AND user2_id=%s)
                 )
 
             """, (
@@ -2611,7 +2613,7 @@ def accept_request(request_id):
             conn.execute("""
 
                 DELETE FROM friend_requests
-                WHERE id = ?
+                WHERE id = %s
 
             """, (request_id,))
 
@@ -2653,8 +2655,8 @@ def reject_request(request_id):
     cursor = conn.execute(
         """
         DELETE FROM friend_requests
-        WHERE id=?
-        AND receiver_id=?
+        WHERE id=%s
+        AND receiver_id=%s
         AND status='pending'
         """,
         (request_id, session["user_id"])
@@ -2690,15 +2692,15 @@ def remove_friend(friend_id):
         WHERE
 
         (
-            user1_id = ?
-            AND user2_id = ?
+            user1_id = %s
+            AND user2_id = %s
         )
 
         OR
 
         (
-            user1_id = ?
-            AND user2_id = ?
+            user1_id = %s
+            AND user2_id = %s
         )
 
     """, (
@@ -2733,7 +2735,7 @@ def calculate_streak_from_conn(conn, user_id):
     streak = 0
 
     routine_count = conn.execute(
-        "SELECT COUNT(*) AS total FROM routines WHERE user_id=?",
+        "SELECT COUNT(*) AS total FROM routines WHERE user_id=%s",
         (user_id,)
     ).fetchone()["total"]
 
@@ -2752,8 +2754,8 @@ def calculate_streak_from_conn(conn, user_id):
             FROM task_logs tl
             JOIN routines r
                 ON tl.routine_id = r.id
-            WHERE r.user_id=?
-            AND tl.log_date=?
+            WHERE r.user_id=%s
+            AND tl.log_date=%s
             """,
             (
                 user_id,
@@ -2794,7 +2796,7 @@ def view_profile(user_id):
         """
         SELECT *
         FROM users
-        WHERE id=?
+        WHERE id=%s
         """,
         (user_id,)
     ).fetchone()
@@ -2808,7 +2810,7 @@ def view_profile(user_id):
     is_friend = conn.execute(
         """
         SELECT 1 FROM friends
-        WHERE (user1_id=? AND user2_id=?) OR (user1_id=? AND user2_id=?)
+        WHERE (user1_id=%s AND user2_id=%s) OR (user1_id=%s AND user2_id=%s)
         """,
         (session["user_id"], user_id, user_id, session["user_id"])
     ).fetchone() is not None
@@ -2831,7 +2833,7 @@ def view_profile(user_id):
             SELECT sender_id, receiver_id, status
             FROM friend_requests
             WHERE status='pending'
-            AND ((sender_id=? AND receiver_id=?) OR (sender_id=? AND receiver_id=?))
+            AND ((sender_id=%s AND receiver_id=%s) OR (sender_id=%s AND receiver_id=%s))
             """,
             (session["user_id"], user_id, user_id, session["user_id"])
         ).fetchone()
@@ -2852,7 +2854,7 @@ def view_profile(user_id):
         """
         SELECT *
         FROM activities
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY id DESC
         LIMIT 10
         """,
@@ -2866,9 +2868,9 @@ def view_profile(user_id):
         FROM friends
 
         WHERE
-        user1_id=?
+        user1_id=%s
         OR
-        user2_id=?
+        user2_id=%s
         """,
         (user_id, user_id)
     ).fetchone()
@@ -2876,12 +2878,12 @@ def view_profile(user_id):
     routine_stats = conn.execute(
         """
         SELECT
-            (SELECT COUNT(*) FROM routines WHERE user_id=?) AS total,
+            (SELECT COUNT(*) FROM routines WHERE user_id=%s) AS total,
             COALESCE((
                 SELECT SUM(task_logs.completed)
                 FROM task_logs
                 JOIN routines ON routines.id=task_logs.routine_id
-                WHERE routines.user_id=?
+                WHERE routines.user_id=%s
             ), 0) AS completed
         """,
         (user_id, user_id)
@@ -2894,7 +2896,7 @@ def view_profile(user_id):
             COALESCE(SUM(completed), 0) AS completed,
             COALESCE(SUM(target), 0) AS target
         FROM dsa_topics
-        WHERE user_id=?
+        WHERE user_id=%s
         """,
         (user_id,)
     ).fetchone()
@@ -2903,9 +2905,9 @@ def view_profile(user_id):
         """
         SELECT
             COUNT(*) AS total,
-            COALESCE(SUM(CASE WHEN winner_id=? THEN 1 ELSE 0 END), 0) AS wins
+            COALESCE(SUM(CASE WHEN winner_id=%s THEN 1 ELSE 0 END), 0) AS wins
         FROM challenges
-        WHERE challenger_id=? OR challenged_id=?
+        WHERE challenger_id=%s OR challenged_id=%s
         """,
         (user_id, user_id, user_id)
     ).fetchone()
@@ -2914,7 +2916,7 @@ def view_profile(user_id):
         """
         SELECT topic_name, completed, target
         FROM dsa_topics
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY id DESC
         LIMIT 4
         """,
@@ -2973,7 +2975,7 @@ def challenge_friend(friend_id):
     friendship = conn.execute(
         """
         SELECT 1 FROM friends
-        WHERE (user1_id=? AND user2_id=?) OR (user1_id=? AND user2_id=?)
+        WHERE (user1_id=%s AND user2_id=%s) OR (user1_id=%s AND user2_id=%s)
         """,
         (current_user, friend_id, friend_id, current_user)
     ).fetchone()
@@ -2986,7 +2988,7 @@ def challenge_friend(friend_id):
         """
         SELECT *
         FROM users
-        WHERE id=?
+        WHERE id=%s
         """,
         (friend_id,)
     ).fetchone()
@@ -3002,13 +3004,13 @@ def challenge_friend(friend_id):
         FROM challenges
         WHERE
         (
-            challenger_id=?
-            AND challenged_id=?
+            challenger_id=%s
+            AND challenged_id=%s
         )
         OR
         (
-            challenger_id=?
-            AND challenged_id=?
+            challenger_id=%s
+            AND challenged_id=%s
         )
         ORDER BY id DESC
         LIMIT 1
@@ -3031,7 +3033,7 @@ def challenge_friend(friend_id):
                     challenged_id,
                     status
                 )
-                VALUES (?,?,?)
+                VALUES (%s,%s,%s)
                 """,
                 (
                     current_user,
@@ -3066,7 +3068,7 @@ def challenge_friend(friend_id):
             COALESCE((SELECT COUNT(*) FROM routines WHERE user_id=users.id), 0) AS habits_total,
             COALESCE((SELECT COUNT(*) FROM challenges WHERE winner_id=users.id), 0) AS wins
         FROM users
-        WHERE id=?
+        WHERE id=%s
         """,
         (current_user,)
     ).fetchone()
@@ -3086,7 +3088,7 @@ def challenge_friend(friend_id):
             COALESCE((SELECT COUNT(*) FROM routines WHERE user_id=users.id), 0) AS habits_total,
             COALESCE((SELECT COUNT(*) FROM challenges WHERE winner_id=users.id), 0) AS wins
         FROM users
-        WHERE id=?
+        WHERE id=%s
         """,
         (friend_id,)
     ).fetchone()
@@ -3096,7 +3098,7 @@ def challenge_friend(friend_id):
         SELECT activities.*, users.username, users.profile_image
         FROM activities
         JOIN users ON users.id=activities.user_id
-        WHERE activities.user_id IN (?, ?)
+        WHERE activities.user_id IN (%s, %s)
         ORDER BY activities.created_at DESC
         LIMIT 8
         """,
@@ -3146,7 +3148,7 @@ def friend_profile(user_id):
         """
         SELECT *
         FROM users
-        WHERE id=?
+        WHERE id=%s
         """,
         (user_id,)
     ).fetchone()
@@ -3155,7 +3157,7 @@ def friend_profile(user_id):
         """
         SELECT COUNT(*) AS total
         FROM routines
-        WHERE user_id=?
+        WHERE user_id=%s
         """,
         (user_id,)
     ).fetchone()["total"]
@@ -3165,7 +3167,7 @@ def friend_profile(user_id):
         SELECT COALESCE(SUM(task_logs.completed), 0) AS total
         FROM task_logs
         JOIN routines ON routines.id=task_logs.routine_id
-        WHERE routines.user_id=?
+        WHERE routines.user_id=%s
         """,
         (user_id,)
     ).fetchone()["total"]
@@ -3276,7 +3278,7 @@ def dsa_tracker():
         """
         SELECT *
         FROM dsa_profiles
-        WHERE user_id=?
+        WHERE user_id=%s
         """,
         (user_id,)
     ).fetchone()
@@ -3405,8 +3407,8 @@ def dsa_tracker():
             """
             SELECT *
             FROM dsa_history
-            WHERE user_id=?
-            AND log_date=?
+            WHERE user_id=%s
+            AND log_date=%s
             """,
             (
                 user_id,
@@ -3419,8 +3421,8 @@ def dsa_tracker():
             conn.execute(
                 """
                 UPDATE dsa_history
-                SET solved_count=?
-                WHERE id=?
+                SET solved_count=%s
+                WHERE id=%s
                 """,
                 (
                     total_solved,
@@ -3437,7 +3439,7 @@ def dsa_tracker():
                     solved_count,
                     log_date
                 )
-                VALUES(?,?,?)
+                VALUES(%s,%s,%s)
                 """,
                 (
                     user_id,
@@ -3500,7 +3502,7 @@ def dsa_tracker():
         """
         SELECT *
         FROM dsa_topics
-        WHERE user_id=?
+        WHERE user_id=%s
         """,
         (user_id,)
     ).fetchall()
@@ -3509,7 +3511,7 @@ def dsa_tracker():
         """
         SELECT *
         FROM pending_topics
-        WHERE user_id=?
+        WHERE user_id=%s
         """,
         (user_id,)
     ).fetchall()
@@ -3518,7 +3520,7 @@ def dsa_tracker():
         """
         SELECT *
         FROM dsa_history
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY log_date
         """,
         (user_id,)
@@ -3632,7 +3634,7 @@ def add_dsa_topic():
     conn = get_db_connection()
 
     existing = conn.execute(
-        "SELECT 1 FROM dsa_topics WHERE user_id=? AND LOWER(topic_name)=LOWER(?)",
+        "SELECT 1 FROM dsa_topics WHERE user_id=%s AND LOWER(topic_name)=LOWER(%s)",
         (user_id, topic_name)
     ).fetchone()
 
@@ -3645,7 +3647,7 @@ def add_dsa_topic():
             completed,
             target
         )
-        VALUES(?,?,?,?)
+        VALUES(%s,%s,%s,%s)
         """,
         (
             user_id,
@@ -3661,7 +3663,7 @@ def add_dsa_topic():
         """
         SELECT id, topic_name, completed, target
         FROM dsa_topics
-        WHERE user_id=? AND LOWER(topic_name)=LOWER(?)
+        WHERE user_id=%s AND LOWER(topic_name)=LOWER(%s)
         ORDER BY id DESC
         LIMIT 1
         """,
@@ -3702,7 +3704,7 @@ def add_pending_topic():
     conn = get_db_connection()
 
     existing = conn.execute(
-        "SELECT 1 FROM pending_topics WHERE user_id=? AND LOWER(topic_name)=LOWER(?)",
+        "SELECT 1 FROM pending_topics WHERE user_id=%s AND LOWER(topic_name)=LOWER(%s)",
         (user_id, topic_name)
     ).fetchone()
 
@@ -3713,7 +3715,7 @@ def add_pending_topic():
             user_id,
             topic_name
         )
-        VALUES(?,?)
+        VALUES(%s,%s)
         """,
         (
             user_id,
@@ -3727,7 +3729,7 @@ def add_pending_topic():
         """
         SELECT id, topic_name
         FROM pending_topics
-        WHERE user_id=? AND LOWER(topic_name)=LOWER(?)
+        WHERE user_id=%s AND LOWER(topic_name)=LOWER(%s)
         ORDER BY id DESC
         LIMIT 1
         """,
@@ -3831,7 +3833,7 @@ def save_leetcode():
         """
         SELECT *
         FROM dsa_profiles
-        WHERE user_id=?
+        WHERE user_id=%s
         """,
         (user_id,)
     ).fetchone()
@@ -3841,8 +3843,8 @@ def save_leetcode():
         conn.execute(
             """
             UPDATE dsa_profiles
-            SET leetcode_username=?
-            WHERE user_id=?
+            SET leetcode_username=%s
+            WHERE user_id=%s
             """,
             (
                 username,
@@ -3858,7 +3860,7 @@ def save_leetcode():
                 user_id,
                 leetcode_username
             )
-            VALUES(?,?)
+            VALUES(%s,%s)
             """,
             (
                 user_id,
@@ -3891,14 +3893,13 @@ def export_habits():
         return redirect("/login")
 
     user_id = session["user_id"]
-
     conn = get_db_connection()
 
     routines = conn.execute(
         """
         SELECT id, task_name
         FROM routines
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY id
         """,
         (user_id,)
@@ -3909,23 +3910,27 @@ def export_habits():
         SELECT
             t.log_date,
             t.completed,
-            r.task_name
+            r.id AS routine_id
         FROM task_logs t
         JOIN routines r
             ON t.routine_id = r.id
-        WHERE r.user_id=?
-        ORDER BY t.log_date
+        WHERE r.user_id=%s
+        ORDER BY t.log_date, r.id
         """,
         (user_id,)
     ).fetchall()
+    conn.close()
 
     output = io.StringIO()
     writer = csv.writer(output)
 
-    task_names = [
-        routine["task_name"]
-        for routine in routines
-    ]
+    routine_headers = []
+    seen_names = {}
+    for routine in routines:
+        task_name = routine["task_name"]
+        seen_names[task_name] = seen_names.get(task_name, 0) + 1
+        header = task_name if seen_names[task_name] == 1 else f"{task_name} ({seen_names[task_name]})"
+        routine_headers.append((routine["id"], header))
 
     dates = sorted(
         {
@@ -3933,54 +3938,40 @@ def export_habits():
             for log in logs
         }
     )
+    if not dates:
+        dates = [date.today().isoformat()]
 
-    habit_data = {}
-
-    for date in dates:
-
-        habit_data[date] = {
-            task: "Incomplete"
-            for task in task_names
+    routine_ids = [routine_id for routine_id, _ in routine_headers]
+    habit_data = {
+        log_date: {
+            routine_id: ""
+            for routine_id in routine_ids
         }
+        for log_date in dates
+    }
 
     for log in logs:
+        log_date = log["log_date"]
+        routine_id = log["routine_id"]
+        if routine_id in habit_data.get(log_date, {}):
+            habit_data[log_date][routine_id] = "✓" if log["completed"] else ""
 
-        habit_data[
-            log["log_date"]
-        ][
-            log["task_name"]
-        ] = (
-            "Completed"
-            if log["completed"]
-            else "Incomplete"
-        )
+    writer.writerow(["Date"] + [header for _, header in routine_headers])
 
-    writer.writerow(
-        ["Date"] + task_names
-    )
-
-    for date in dates:
-
-        row = [date]
-
-        for task in task_names:
-
-            row.append(
-                habit_data[date][task]
-            )
-
+    for log_date in dates:
+        row = [log_date]
+        row.extend(habit_data[log_date].get(routine_id, "") for routine_id in routine_ids)
         writer.writerow(row)
 
-    conn.close()
-
     output.seek(0)
+    filename = f"routine_history_{date.today().isoformat()}.csv"
 
     return Response(
-        output.getvalue(),
+        "\ufeff" + output.getvalue(),
         mimetype="text/csv",
         headers={
             "Content-Disposition":
-            "attachment; filename=habit_history.csv"
+            f"attachment; filename={filename}"
         }
     )
 
@@ -4000,7 +3991,7 @@ def export_dsa():
             log_date,
             solved_count
         FROM dsa_history
-        WHERE user_id=?
+        WHERE user_id=%s
         ORDER BY log_date
         """,
         (user_id,)
@@ -4046,7 +4037,7 @@ def delete_dsa_topic(id):
     cursor = conn.execute(
         """
         DELETE FROM dsa_topics
-        WHERE id = ? AND user_id = ?
+        WHERE id = %s AND user_id = %s
         """,
         (id, session["user_id"])
     )
@@ -4088,9 +4079,9 @@ def update_dsa_topic(id):
     conn.execute(
         """
         UPDATE dsa_topics
-        SET completed = ?,
-            target = ?
-        WHERE id = ? AND user_id = ?
+        SET completed = %s,
+            target = %s
+        WHERE id = %s AND user_id = %s
         """,
         (
             completed,
@@ -4106,7 +4097,7 @@ def update_dsa_topic(id):
         """
         SELECT id, topic_name, completed, target
         FROM dsa_topics
-        WHERE id=? AND user_id=?
+        WHERE id=%s AND user_id=%s
         """,
         (id, session["user_id"])
     ).fetchone()
@@ -4134,7 +4125,7 @@ def delete_pending_topic(id):
     conn = get_db_connection()
 
     cursor = conn.execute(
-        "DELETE FROM pending_topics WHERE id=? AND user_id=?",
+        "DELETE FROM pending_topics WHERE id=%s AND user_id=%s",
         (id, session["user_id"])
     )
 
