@@ -93,7 +93,9 @@ SCHEMA_STATEMENTS = (
         id SERIAL PRIMARY KEY,
         routine_id INTEGER,
         log_date TEXT,
-        completed INTEGER DEFAULT 0
+        completed INTEGER DEFAULT 0,
+        task_name_snapshot TEXT,
+        user_id_snapshot INTEGER
     )
     """,
     """
@@ -347,6 +349,38 @@ def init_db():
     for column, definition in user_migrations.items():
         if column not in user_columns:
             conn.execute(f"ALTER TABLE users ADD COLUMN {column} {definition}")
+
+    task_log_columns = get_table_columns(conn, "task_logs")
+    task_log_migrations = {
+        "task_name_snapshot": "TEXT",
+        "user_id_snapshot": "INTEGER",
+    }
+    for column, definition in task_log_migrations.items():
+        if column not in task_log_columns:
+            conn.execute(f"ALTER TABLE task_logs ADD COLUMN {column} {definition}")
+
+    conn.execute(
+        """
+        UPDATE task_logs
+        SET task_name_snapshot=(
+                SELECT task_name FROM routines
+                WHERE routines.id=task_logs.routine_id
+            ),
+            user_id_snapshot=(
+                SELECT user_id FROM routines
+                WHERE routines.id=task_logs.routine_id
+            )
+        WHERE EXISTS (
+            SELECT 1 FROM routines
+            WHERE routines.id=task_logs.routine_id
+        )
+        AND (
+            task_name_snapshot IS NULL
+            OR task_name_snapshot=''
+            OR user_id_snapshot IS NULL
+        )
+        """
+    )
 
     friends_columns = get_table_columns(conn, "friends")
     if "created_at" not in friends_columns:

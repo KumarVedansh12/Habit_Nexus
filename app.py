@@ -30,7 +30,8 @@ datetime
 )
 
 from database import (
-    get_db_connection
+    get_db_connection,
+    get_table_columns
 )
 import os
 from werkzeug.utils import secure_filename
@@ -251,6 +252,37 @@ def dashboard_routine_json(conn, user_id, selected_day, message=None):
     state["streak"] = calculate_streak_from_conn(conn, user_id)
     state["message"] = message
     return jsonify(state)
+
+
+def ensure_routine_history_columns(conn):
+    task_log_columns = get_table_columns(conn, "task_logs")
+    if "task_name_snapshot" not in task_log_columns:
+        conn.execute("ALTER TABLE task_logs ADD COLUMN task_name_snapshot TEXT")
+    if "user_id_snapshot" not in task_log_columns:
+        conn.execute("ALTER TABLE task_logs ADD COLUMN user_id_snapshot INTEGER")
+
+    conn.execute(
+        """
+        UPDATE task_logs
+        SET task_name_snapshot=(
+                SELECT task_name FROM routines
+                WHERE routines.id=task_logs.routine_id
+            ),
+            user_id_snapshot=(
+                SELECT user_id FROM routines
+                WHERE routines.id=task_logs.routine_id
+            )
+        WHERE EXISTS (
+            SELECT 1 FROM routines
+            WHERE routines.id=task_logs.routine_id
+        )
+        AND (
+            task_name_snapshot IS NULL
+            OR task_name_snapshot=''
+            OR user_id_snapshot IS NULL
+        )
+        """
+    )
 
 
 def normalize_activity_time(value):
@@ -2045,30 +2077,40 @@ def delete(id):
 
     selected_day = parse_iso_date(request.form.get("selected_date"), date.today())
     conn = get_db_connection()
+    ensure_routine_history_columns(conn)
 
-    conn.execute(
+    routine = conn.execute(
         """
-        DELETE FROM task_logs
-        WHERE routine_id=%s
-        AND EXISTS (
-            SELECT 1 FROM routines
-            WHERE routines.id=%s AND routines.user_id=%s
-        )
-        """,
-        (id, id, session["user_id"])
-    )
-
-    conn.execute(
-        """
-        DELETE FROM routines
+        SELECT id, task_name, user_id
+        FROM routines
         WHERE id=%s
         AND user_id=%s
         """,
-        (
-            id,
-            session["user_id"]
+        (id, session["user_id"])
+    ).fetchone()
+
+    if routine:
+        conn.execute(
+            """
+            UPDATE task_logs
+            SET task_name_snapshot=COALESCE(NULLIF(task_name_snapshot, ''), %s),
+                user_id_snapshot=COALESCE(user_id_snapshot, %s)
+            WHERE routine_id=%s
+            """,
+            (routine["task_name"], routine["user_id"], id)
         )
-    )
+
+        conn.execute(
+            """
+            DELETE FROM routines
+            WHERE id=%s
+            AND user_id=%s
+            """,
+            (
+                id,
+                session["user_id"]
+            )
+        )
 
     conn.commit()
 
@@ -2088,6 +2130,7 @@ def toggle(id):
 
     selected_day = parse_iso_date(request.form.get("selected_date"), date.today())
     conn = get_db_connection()
+    ensure_routine_history_columns(conn)
 
     routine = conn.execute(
         """
@@ -2131,11 +2174,15 @@ def toggle(id):
         conn.execute(
             """
             UPDATE task_logs
-            SET completed=%s
+            SET completed=%s,
+                task_name_snapshot=COALESCE(NULLIF(task_name_snapshot, ''), %s),
+                user_id_snapshot=COALESCE(user_id_snapshot, %s)
             WHERE id=%s
             """,
             (
                 new_status,
+                routine["task_name"],
+                routine["user_id"],
                 existing_log["id"]
             )
         )
@@ -2148,14 +2195,18 @@ def toggle(id):
             (
                 routine_id,
                 log_date,
-                completed
+                completed,
+                task_name_snapshot,
+                user_id_snapshot
             )
-            VALUES (%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s)
             """,
             (
                 id,
                 log_date,
-                new_status
+                new_status,
+                routine["task_name"],
+                routine["user_id"]
             )
         )
 
@@ -3894,8 +3945,9 @@ def export_habits():
 
     user_id = session["user_id"]
     conn = get_db_connection()
+    ensure_routine_history_columns(conn)
 
-    routines = conn.execute(
+    current_routines = conn.execute(
         """
         SELECT id, task_name
         FROM routines
@@ -3905,32 +3957,64 @@ def export_habits():
         (user_id,)
     ).fetchall()
 
+    history_routines = conn.execute(
+        """
+        SELECT
+            t.routine_id,
+            COALESCE(
+                NULLIF(MAX(t.task_name_snapshot), ''),
+                MAX(r.task_name),
+                'Deleted routine #' || CAST(t.routine_id AS TEXT)
+            ) AS task_name,
+            MIN(t.log_date) AS first_log_date
+        FROM task_logs t
+        LEFT JOIN routines r
+            ON t.routine_id = r.id
+        WHERE COALESCE(t.user_id_snapshot, r.user_id)=%s
+        GROUP BY t.routine_id
+        ORDER BY first_log_date, t.routine_id
+        """,
+        (user_id,)
+    ).fetchall()
+
     logs = conn.execute(
         """
         SELECT
             t.log_date,
             t.completed,
-            r.id AS routine_id
+            t.routine_id
         FROM task_logs t
-        JOIN routines r
+        LEFT JOIN routines r
             ON t.routine_id = r.id
-        WHERE r.user_id=%s
-        ORDER BY t.log_date, r.id
+        WHERE COALESCE(t.user_id_snapshot, r.user_id)=%s
+        ORDER BY t.log_date, t.routine_id
         """,
         (user_id,)
     ).fetchall()
+    conn.commit()
     conn.close()
 
     output = io.StringIO()
     writer = csv.writer(output)
 
     routine_headers = []
+    routine_header_ids = set()
     seen_names = {}
-    for routine in routines:
-        task_name = routine["task_name"]
+
+    def add_routine_header(routine_id, task_name):
+        if routine_id in routine_header_ids:
+            return
+        task_name = task_name or f"Deleted routine #{routine_id}"
         seen_names[task_name] = seen_names.get(task_name, 0) + 1
         header = task_name if seen_names[task_name] == 1 else f"{task_name} ({seen_names[task_name]})"
-        routine_headers.append((routine["id"], header))
+        routine_header_ids.add(routine_id)
+        routine_headers.append((routine_id, header))
+
+    for routine in history_routines:
+        add_routine_header(routine["routine_id"], routine["task_name"])
+
+    for routine in current_routines:
+        add_routine_header(routine["id"], routine["task_name"])
 
     dates = sorted(
         {
@@ -3942,6 +4026,7 @@ def export_habits():
         dates = [date.today().isoformat()]
 
     routine_ids = [routine_id for routine_id, _ in routine_headers]
+    routine_labels = dict(routine_headers)
     habit_data = {
         log_date: {
             routine_id: ""
@@ -3954,7 +4039,12 @@ def export_habits():
         log_date = log["log_date"]
         routine_id = log["routine_id"]
         if routine_id in habit_data.get(log_date, {}):
-            habit_data[log_date][routine_id] = "✓" if log["completed"] else ""
+            routine_label = routine_labels.get(routine_id, f"Routine #{routine_id}")
+            habit_data[log_date][routine_id] = (
+                f"{routine_label} ✓"
+                if log["completed"]
+                else routine_label
+            )
 
     writer.writerow(["Date"] + [header for _, header in routine_headers])
 
