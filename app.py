@@ -3893,7 +3893,6 @@ def export_habits():
         return redirect("/login")
 
     user_id = session["user_id"]
-
     conn = get_db_connection()
 
     routines = conn.execute(
@@ -3911,23 +3910,27 @@ def export_habits():
         SELECT
             t.log_date,
             t.completed,
-            r.task_name
+            r.id AS routine_id
         FROM task_logs t
         JOIN routines r
             ON t.routine_id = r.id
         WHERE r.user_id=%s
-        ORDER BY t.log_date
+        ORDER BY t.log_date, r.id
         """,
         (user_id,)
     ).fetchall()
+    conn.close()
 
     output = io.StringIO()
     writer = csv.writer(output)
 
-    task_names = [
-        routine["task_name"]
-        for routine in routines
-    ]
+    routine_headers = []
+    seen_names = {}
+    for routine in routines:
+        task_name = routine["task_name"]
+        seen_names[task_name] = seen_names.get(task_name, 0) + 1
+        header = task_name if seen_names[task_name] == 1 else f"{task_name} ({seen_names[task_name]})"
+        routine_headers.append((routine["id"], header))
 
     dates = sorted(
         {
@@ -3935,54 +3938,40 @@ def export_habits():
             for log in logs
         }
     )
+    if not dates:
+        dates = [date.today().isoformat()]
 
-    habit_data = {}
-
-    for date in dates:
-
-        habit_data[date] = {
-            task: "Incomplete"
-            for task in task_names
+    routine_ids = [routine_id for routine_id, _ in routine_headers]
+    habit_data = {
+        log_date: {
+            routine_id: ""
+            for routine_id in routine_ids
         }
+        for log_date in dates
+    }
 
     for log in logs:
+        log_date = log["log_date"]
+        routine_id = log["routine_id"]
+        if routine_id in habit_data.get(log_date, {}):
+            habit_data[log_date][routine_id] = "✓" if log["completed"] else ""
 
-        habit_data[
-            log["log_date"]
-        ][
-            log["task_name"]
-        ] = (
-            "Completed"
-            if log["completed"]
-            else "Incomplete"
-        )
+    writer.writerow(["Date"] + [header for _, header in routine_headers])
 
-    writer.writerow(
-        ["Date"] + task_names
-    )
-
-    for date in dates:
-
-        row = [date]
-
-        for task in task_names:
-
-            row.append(
-                habit_data[date][task]
-            )
-
+    for log_date in dates:
+        row = [log_date]
+        row.extend(habit_data[log_date].get(routine_id, "") for routine_id in routine_ids)
         writer.writerow(row)
 
-    conn.close()
-
     output.seek(0)
+    filename = f"routine_history_{date.today().isoformat()}.csv"
 
     return Response(
-        output.getvalue(),
+        "\ufeff" + output.getvalue(),
         mimetype="text/csv",
         headers={
             "Content-Disposition":
-            "attachment; filename=habit_history.csv"
+            f"attachment; filename={filename}"
         }
     )
 
