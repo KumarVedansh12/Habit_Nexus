@@ -28,6 +28,7 @@ date,
 timedelta,
 datetime
 )
+from zoneinfo import ZoneInfo
 
 from database import (
     get_db_connection,
@@ -44,6 +45,16 @@ from werkzeug.security import (
 import os
 
 app = Flask(__name__)
+
+APP_TIMEZONE = ZoneInfo(os.environ.get("APP_TIMEZONE", "Asia/Kolkata"))
+
+
+def app_now():
+    return datetime.now(APP_TIMEZONE)
+
+
+def app_today():
+    return app_now().date()
 
 configured_secret = os.environ.get("SECRET_KEY")
 if os.environ.get("APP_ENV") == "production" and not configured_secret:
@@ -186,15 +197,15 @@ def delete_user_account(conn, user_id):
 
 def parse_iso_date(value, default=None):
     if not value:
-        return default or date.today()
+        return default or app_today()
     try:
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError:
-        return default or date.today()
+        return default or app_today()
 
 
 def redirect_dashboard_for(day):
-    today = date.today()
+    today = app_today()
     if day and day != today:
         return redirect(url_for("dashboard", date=day.isoformat()))
     return redirect(url_for("dashboard"))
@@ -294,7 +305,7 @@ def normalize_activity_time(value):
 
 
 def build_ai_notifications(pending_routines, selected_day, progress):
-    if selected_day != date.today() or not pending_routines:
+    if selected_day != app_today() or not pending_routines:
         return []
 
     quotes = [
@@ -500,7 +511,11 @@ def load_current_user_and_protect_forms():
 
 @app.context_processor
 def inject_account_context():
-    return {"current_user": g.get("current_user")}
+    return {
+        "current_user": g.get("current_user"),
+        "current_app_date": app_today().isoformat(),
+        "app_timezone": str(APP_TIMEZONE),
+    }
 
 
 @app.errorhandler(413)
@@ -526,7 +541,7 @@ def home():
         metrics=PROTOTYPE_METRICS,
         landing_updates=landing_updates,
         contact_details=rows_to_contact_details(contact_rows),
-        current_year=date.today().year
+        current_year=app_today().year
     )
 
 
@@ -571,7 +586,7 @@ def developer_required(view):
 @developer_required
 def developer_dashboard():
     conn = get_db_connection()
-    today = date.today()
+    today = app_today()
     seven_days_ago = today - timedelta(days=6)
     thirty_days_ago = today - timedelta(days=29)
 
@@ -915,7 +930,7 @@ def dashboard():
         return redirect("/login")
 
     user_id = session["user_id"]
-    today = date.today()
+    today = app_today()
     selected_day = parse_iso_date(request.args.get("date"), today)
     today_key = selected_day.isoformat()
     conn = get_db_connection()
@@ -1227,14 +1242,14 @@ def analytics():
         WHERE routines.user_id=%s
         ORDER BY routines.id DESC
         """,
-        (date.today().isoformat(), user_id)
+        (app_today().isoformat(), user_id)
     ).fetchall()
     total = len(routines)
     completed = sum(routine["completed"] for routine in routines)
     progress = round((completed / total) * 100) if total else 0
     streak = calculate_streak(user_id)
 
-    start_date = date.today() - timedelta(days=13)
+    start_date = app_today() - timedelta(days=13)
     daily_rows = conn.execute(
         """
         SELECT
@@ -1347,7 +1362,7 @@ def calendar():
 
     user_id = session["user_id"]
 
-    today = date.today()
+    today = app_today()
     try:
         year = int(request.args.get("year", today.year))
         month = int(request.args.get("month", today.month))
@@ -1481,7 +1496,7 @@ def leaderboard():
 
         return redirect("/login")
 
-    start_date = date.today() - timedelta(days=6)
+    start_date = app_today() - timedelta(days=6)
     conn = get_db_connection()
     users = conn.execute(
         """
@@ -1569,7 +1584,7 @@ def notifications():
 
     conn = get_db_connection()
 
-    selected_day = date.today()
+    selected_day = app_today()
     today_key = selected_day.isoformat()
     routines = conn.execute(
         """
@@ -2019,7 +2034,7 @@ def add_routine():
         return redirect("/login")
 
     task = request.form.get("task", "").strip()[:100]
-    selected_day = parse_iso_date(request.form.get("selected_date"), date.today())
+    selected_day = parse_iso_date(request.form.get("selected_date"), app_today())
     message = None
 
     if task:
@@ -2075,7 +2090,7 @@ def delete(id):
 
         return redirect("/login")
 
-    selected_day = parse_iso_date(request.form.get("selected_date"), date.today())
+    selected_day = parse_iso_date(request.form.get("selected_date"), app_today())
     conn = get_db_connection()
     ensure_routine_history_columns(conn)
 
@@ -2128,7 +2143,7 @@ def toggle(id):
     if "user_id" not in session:
         return redirect("/login")
 
-    selected_day = parse_iso_date(request.form.get("selected_date"), date.today())
+    selected_day = parse_iso_date(request.form.get("selected_date"), app_today())
     conn = get_db_connection()
     ensure_routine_history_columns(conn)
 
@@ -2793,7 +2808,7 @@ def calculate_streak_from_conn(conn, user_id):
     if not routine_count:
         return 0
 
-    current_day = date.today()
+    current_day = app_today()
 
     while True:
 
@@ -3452,7 +3467,7 @@ def dsa_tracker():
         # SAVE DAILY HISTORY
         # ---------------------
 
-        today = date.today().isoformat()
+        today = app_today().isoformat()
 
         existing = conn.execute(
             """
@@ -3612,17 +3627,17 @@ def dsa_tracker():
     weekly_labels = []
     weekly_counts = []
     for offset in range(6, -1, -1):
-        current_date = date.today() - timedelta(days=offset)
+        current_date = app_today() - timedelta(days=offset)
         weekly_labels.append(current_date.strftime("%a"))
         weekly_counts.append(history_changes.get(current_date.isoformat(), 0))
 
     streak = 0
-    streak_date = date.today()
+    streak_date = app_today()
     while history_changes.get(streak_date.isoformat(), 0) > 0:
         streak += 1
         streak_date -= timedelta(days=1)
 
-    daily_solved = history_changes.get(date.today().isoformat(), 0)
+    daily_solved = history_changes.get(app_today().isoformat(), 0)
     latest_sync = history[-1]["log_date"] if history else None
     sync_available = bool(
         leetcode_data
@@ -4023,7 +4038,7 @@ def export_habits():
         }
     )
     if not dates:
-        dates = [date.today().isoformat()]
+        dates = [app_today().isoformat()]
 
     routine_ids = [routine_id for routine_id, _ in routine_headers]
     routine_labels = dict(routine_headers)
@@ -4054,7 +4069,7 @@ def export_habits():
         writer.writerow(row)
 
     output.seek(0)
-    filename = f"routine_history_{date.today().isoformat()}.csv"
+    filename = f"routine_history_{app_today().isoformat()}.csv"
 
     return Response(
         "\ufeff" + output.getvalue(),

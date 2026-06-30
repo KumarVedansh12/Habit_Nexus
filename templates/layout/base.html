@@ -104,6 +104,54 @@
         image.src = "{{ url_for('static', filename='images/default-avatar.svg') }}";
     }, true);
     </script>
+    {% if current_user %}
+    <script>
+    (function () {
+        const serverDate = "{{ current_app_date }}";
+        const indiaFormatter = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Asia/Kolkata",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit"
+        });
+
+        function indiaParts(now) {
+            const parts = {};
+            indiaFormatter.formatToParts(now).forEach(function (part) {
+                if (part.type !== "literal") parts[part.type] = Number(part.value);
+            });
+            return parts;
+        }
+
+        function indiaDateKey(now) {
+            const parts = indiaParts(now);
+            return [
+                parts.year,
+                String(parts.month).padStart(2, "0"),
+                String(parts.day).padStart(2, "0")
+            ].join("-");
+        }
+
+        function scheduleIndiaMidnightRefresh() {
+            const now = new Date();
+            const parts = indiaParts(now);
+            const nextMidnightUtc = Date.UTC(parts.year, parts.month - 1, parts.day, 18, 30, 2);
+            const delay = Math.max(nextMidnightUtc - now.getTime(), 1000);
+            window.setTimeout(function () {
+                window.location.reload();
+            }, delay);
+        }
+
+        document.addEventListener("visibilitychange", function () {
+            if (!document.hidden && indiaDateKey(new Date()) !== serverDate) {
+                window.location.reload();
+            }
+        });
+
+        scheduleIndiaMidnightRefresh();
+    })();
+    </script>
+    {% endif %}
 
 </body>
 
